@@ -1,0 +1,746 @@
+import { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import { useLanguage } from '../contexts/LanguageContext'
+import { useNavigate } from 'react-router-dom'
+import { 
+  Users, 
+  DollarSign, 
+  CreditCard, 
+  TrendingUp, 
+  Activity,
+  LogOut,
+  RefreshCw,
+  Calendar,
+  User,
+  Coins,
+  Eye,
+  Download,
+  Trash2,
+  Shield,
+  Plus,
+  X
+} from 'lucide-react'
+import axios from 'axios'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import Header from './Header'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+
+export default function AdminDashboard() {
+  const { t } = useLanguage()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [stats, setStats] = useState(null)
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [timeRange, setTimeRange] = useState('today')
+  const [activeTab, setActiveTab] = useState('overview')
+  const [showAddTokensModal, setShowAddTokensModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState(null)
+  const [tokenAmount, setTokenAmount] = useState('')
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [startDate, setStartDate] = useState(null)
+  const [endDate, setEndDate] = useState(null)
+  const [chartData, setChartData] = useState(null)
+
+  useEffect(() => {
+    console.log('AdminDashboard useEffect - user:', user)
+    if (!user) {
+      console.log('No user, redirecting to login')
+      navigate('/login')
+      return
+    }
+    
+    console.log('User isAdmin:', user.isAdmin)
+    if (!user.isAdmin) {
+      console.log('User is not admin, redirecting to dashboard')
+      navigate('/dashboard')
+      return
+    }
+
+    console.log('User is admin, fetching data...')
+    fetchData()
+    const interval = setInterval(fetchData, 30000) // 每30秒刷新一次
+    return () => clearInterval(interval)
+  }, [user, navigate])
+
+  const fetchData = async (customStartDate = null, customEndDate = null) => {
+    try {
+      const token = localStorage.getItem('glowlisting_token')
+      if (!token) {
+        navigate('/login')
+        return
+      }
+
+      console.log('Fetching admin data...')
+      const params = {}
+      if (customStartDate && customEndDate) {
+        params.startDate = customStartDate.toISOString()
+        params.endDate = customEndDate.toISOString()
+      } else {
+        params.range = timeRange
+      }
+      
+      const [statsRes, usersRes] = await Promise.all([
+        axios.get(`${API_URL}/admin/stats`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params
+        }),
+        axios.get(`${API_URL}/admin/users`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ])
+
+      console.log('Admin stats:', statsRes.data)
+      console.log('Admin users:', usersRes.data)
+      
+      setStats(statsRes.data.stats)
+      setUsers(usersRes.data.users)
+      setChartData(statsRes.data.chartData || null)
+    } catch (error) {
+      console.error('Failed to fetch admin data:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
+      // 显示错误信息给用户
+      if (error.response?.status === 403) {
+        alert('您没有管理员权限')
+        navigate('/dashboard')
+      } else if (error.response?.status === 401) {
+        alert('请先登录')
+        navigate('/login')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCustomDateRange = () => {
+    if (startDate && endDate) {
+      setTimeRange('custom')
+      fetchData(startDate, endDate)
+      setShowDatePicker(false)
+    }
+  }
+
+  const handleTimeRangeChange = (range) => {
+    setTimeRange(range)
+    setStartDate(null)
+    setEndDate(null)
+    setShowDatePicker(false)
+    fetchData()
+  }
+
+  const handleDeleteUser = async (userId, userName) => {
+    if (!confirm(`${t('adminDashboard.deleteConfirm')} (${userName})`)) {
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('glowlisting_token')
+      await axios.delete(`${API_URL}/admin/users/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      alert(t('adminDashboard.userDeleted'))
+      fetchData() // 刷新数据
+    } catch (error) {
+      console.error('Delete user error:', error)
+      alert(error.response?.data?.error || t('adminDashboard.error'))
+    }
+  }
+
+  const handleToggleAdmin = async (userId) => {
+    try {
+      const token = localStorage.getItem('glowlisting_token')
+      const res = await axios.put(`${API_URL}/admin/users/${userId}/toggle-admin`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      alert(t('adminDashboard.userUpdated'))
+      fetchData() // 刷新数据
+    } catch (error) {
+      console.error('Toggle admin error:', error)
+      alert(error.response?.data?.error || t('adminDashboard.error'))
+    }
+  }
+
+  const handleAddTokens = async () => {
+    if (!tokenAmount || parseInt(tokenAmount) <= 0) {
+      alert('Please enter a valid token amount')
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('glowlisting_token')
+      await axios.post(`${API_URL}/admin/users/${selectedUser.id}/tokens`, {
+        amount: parseInt(tokenAmount)
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      alert(t('adminDashboard.tokensAdded'))
+      setShowAddTokensModal(false)
+      setSelectedUser(null)
+      setTokenAmount('')
+      fetchData() // 刷新数据
+    } catch (error) {
+      console.error('Add tokens error:', error)
+      alert(error.response?.data?.error || t('adminDashboard.error'))
+    }
+  }
+
+  if (!user || !user.isAdmin) {
+    return null
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-12 w-12 text-blue-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">{t('adminDashboard.loading')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const timeRanges = [
+    { value: 'today', label: t('adminDashboard.today') },
+    { value: 'yesterday', label: t('adminDashboard.yesterday') },
+    { value: 'weekToDate', label: t('adminDashboard.weekToDate') },
+    { value: 'lastWeek', label: t('adminDashboard.lastWeek') },
+    { value: 'monthToDate', label: t('adminDashboard.monthToDate') },
+    { value: 'yearToDate', label: t('adminDashboard.yearToDate') },
+    { value: 'allTime', label: t('adminDashboard.allTime') },
+    { value: 'custom', label: t('adminDashboard.customRange') },
+  ]
+
+  const getTokenUsage = () => {
+    if (!stats) return { totalUsage: 0, totalDownload: 0, uniqueUsers: 0 }
+    if (timeRange === 'custom' && stats.tokenUsage.custom) {
+      return stats.tokenUsage.custom
+    }
+    return stats.tokenUsage[timeRange] || { totalUsage: 0, totalDownload: 0, uniqueUsers: 0 }
+  }
+
+  const getRevenue = () => {
+    if (!stats) return 0
+    if (timeRange === 'custom' && stats.totalRevenue.custom) {
+      return stats.totalRevenue.custom
+    }
+    return stats.totalRevenue[timeRange] || 0
+  }
+
+  const tokenUsage = getTokenUsage()
+  const revenue = getRevenue()
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black">
+      <Header />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* 头部 */}
+        <div className="glass-dark rounded-xl p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">{t('adminDashboard.dashboard')}</h1>
+              <p className="text-gray-400">{t('adminDashboard.welcomeBack')}, {user.name}</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={fetchData}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <RefreshCw className="h-5 w-5" />
+                <span>{t('adminDashboard.refresh')}</span>
+              </button>
+              <button
+                onClick={logout}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>{t('adminDashboard.logout')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 标签页 */}
+        <div className="flex gap-2 mb-6 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'overview'
+                ? 'bg-blue-600 text-white'
+                : 'glass-dark text-gray-300 hover:bg-gray-800'
+            }`}
+          >
+            {t('adminDashboard.overview')}
+          </button>
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'users'
+                ? 'bg-blue-600 text-white'
+                : 'glass-dark text-gray-300 hover:bg-gray-800'
+            }`}
+          >
+            {t('adminDashboard.users')} ({users.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'analytics'
+                ? 'bg-blue-600 text-white'
+                : 'glass-dark text-gray-300 hover:bg-gray-800'
+            }`}
+          >
+            {t('adminDashboard.analytics')}
+          </button>
+        </div>
+
+        {/* 时间范围选择器 */}
+        {activeTab === 'overview' && (
+          <div className="glass-dark rounded-xl p-4 mb-6 relative z-50">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Calendar className="h-5 w-5 text-gray-400" />
+              <span className="text-gray-300 font-medium">{t('adminDashboard.timeRange')}:</span>
+              {timeRanges.map(range => (
+                <button
+                  key={range.value}
+                  onClick={() => {
+                    if (range.value === 'custom') {
+                      setShowDatePicker(!showDatePicker)
+                    } else {
+                      handleTimeRangeChange(range.value)
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    timeRange === range.value
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+            
+            {/* 自定义日期范围选择器 */}
+            {showDatePicker && (
+              <div className="mt-4 glass-dark rounded-xl p-4 shadow-2xl border border-gray-700 relative z-50">
+                <div className="flex flex-col md:flex-row gap-4 items-end">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm text-gray-300">{t('adminDashboard.startDate')}</label>
+                    <DatePicker
+                      selected={startDate}
+                      onChange={(date) => setStartDate(date)}
+                      selectsStart
+                      startDate={startDate}
+                      endDate={endDate}
+                      maxDate={new Date()}
+                      className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                      dateFormat="yyyy-MM-dd"
+                      placeholderText={t('adminDashboard.selectStartDate')}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm text-gray-300">{t('adminDashboard.endDate')}</label>
+                    <DatePicker
+                      selected={endDate}
+                      onChange={(date) => setEndDate(date)}
+                      selectsEnd
+                      startDate={startDate}
+                      endDate={endDate}
+                      minDate={startDate}
+                      maxDate={new Date()}
+                      className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                      dateFormat="yyyy-MM-dd"
+                      placeholderText={t('adminDashboard.selectEndDate')}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCustomDateRange}
+                      disabled={!startDate || !endDate}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors whitespace-nowrap"
+                    >
+                      {t('adminDashboard.apply')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDatePicker(false)
+                        setStartDate(null)
+                        setEndDate(null)
+                        if (timeRange === 'custom') {
+                          setTimeRange('today')
+                          fetchData()
+                        }
+                      }}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
+                    >
+                      {t('adminDashboard.cancel')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 趋势图表 - 放在Time Range选择器下面 */}
+        {activeTab === 'overview' && (
+          <div className="glass-dark rounded-xl p-6 mb-6">
+            <h2 className="text-xl font-bold text-white mb-4">{t('adminDashboard.trendChart')}</h2>
+            {chartData && chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#9CA3AF"
+                  tick={{ fill: '#9CA3AF' }}
+                  tickFormatter={(value) => {
+                    const date = new Date(value)
+                    return `${date.getMonth() + 1}/${date.getDate()}`
+                  }}
+                />
+                <YAxis 
+                  yAxisId="left"
+                  stroke="#9CA3AF"
+                  tick={{ fill: '#9CA3AF' }}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#9CA3AF"
+                  tick={{ fill: '#9CA3AF' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(31, 41, 55, 0.95)',
+                    border: '1px solid rgba(55, 65, 81, 1)',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                  labelStyle={{ color: '#9CA3AF' }}
+                  formatter={(value, name) => {
+                    if (name === 'totalRevenue') {
+                      return [`$${value.toFixed(2)}`, t('adminDashboard.totalRevenue')]
+                    }
+                    return [value, t(`adminDashboard.${name}`)]
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ color: '#9CA3AF' }}
+                  formatter={(value) => {
+                    if (value === 'totalRevenue') return t('adminDashboard.totalRevenue')
+                    if (value === 'totalUsers') return t('adminDashboard.totalUsers')
+                    if (value === 'totalSubscriptions') return t('adminDashboard.totalSubscriptions')
+                    return value
+                  }}
+                />
+                <Line 
+                  yAxisId="left"
+                  type="monotone" 
+                  dataKey="totalUsers" 
+                  stroke="#3B82F6" 
+                  strokeWidth={2}
+                  dot={{ fill: '#3B82F6', r: 3 }}
+                  name="totalUsers"
+                />
+                <Line 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey="totalRevenue" 
+                  stroke="#F59E0B" 
+                  strokeWidth={2}
+                  dot={{ fill: '#F59E0B', r: 3 }}
+                  name="totalRevenue"
+                />
+                <Line 
+                  yAxisId="left"
+                  type="monotone" 
+                  dataKey="totalSubscriptions" 
+                  stroke="#A855F7" 
+                  strokeWidth={2}
+                  dot={{ fill: '#A855F7', r: 3 }}
+                  name="totalSubscriptions"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-96 text-gray-400">
+                <p>{t('adminDashboard.noChartData')}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 概览标签页 */}
+        {activeTab === 'overview' && stats && (
+          <div className="space-y-6">
+            {/* 关键指标卡片 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* 在线人数 */}
+              <div className="glass-dark rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-green-500/20 p-3 rounded-lg">
+                    <Activity className="h-6 w-6 text-green-400" />
+                  </div>
+                </div>
+                <h3 className="text-gray-400 text-sm mb-1">{t('adminDashboard.activeUsers')}</h3>
+                <p className="text-3xl font-bold text-white">{stats.activeUsers}</p>
+              </div>
+
+              {/* 注册用户数 */}
+              <div className="glass-dark rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-blue-500/20 p-3 rounded-lg">
+                    <Users className="h-6 w-6 text-blue-400" />
+                  </div>
+                </div>
+                <h3 className="text-gray-400 text-sm mb-1">{t('adminDashboard.totalUsers')}</h3>
+                <p className="text-3xl font-bold text-white">{stats.totalUsers}</p>
+              </div>
+
+              {/* 总收入 */}
+              <div className="glass-dark rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-yellow-500/20 p-3 rounded-lg">
+                    <DollarSign className="h-6 w-6 text-yellow-400" />
+                  </div>
+                </div>
+                <h3 className="text-gray-400 text-sm mb-1">{t('adminDashboard.totalRevenue')}</h3>
+                <p className="text-3xl font-bold text-white">${revenue.toFixed(2)}</p>
+              </div>
+
+              {/* 总订阅数 */}
+              <div className="glass-dark rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-purple-500/20 p-3 rounded-lg">
+                    <CreditCard className="h-6 w-6 text-purple-400" />
+                  </div>
+                </div>
+                <h3 className="text-gray-400 text-sm mb-1">{t('adminDashboard.totalSubscriptions')}</h3>
+                <p className="text-3xl font-bold text-white">{stats.subscriptions.active}</p>
+                <p className="text-sm text-gray-400 mt-1">{t('adminDashboard.total')}: {stats.subscriptions.total}</p>
+              </div>
+            </div>
+
+            {/* Token消耗统计 */}
+            <div className="glass-dark rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white">{t('adminDashboard.tokenUsage')}</h2>
+                <TrendingUp className="h-5 w-5 text-blue-400" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <p className="text-gray-400 text-sm mb-2">{t('adminDashboard.totalTokenUsage')}</p>
+                  <p className="text-4xl font-bold text-white">{tokenUsage.totalUsage || 0}</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('adminDashboard.totalTokenUsageDesc')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm mb-2">{t('adminDashboard.totalDownload')}</p>
+                  <p className="text-4xl font-bold text-white">{tokenUsage.totalDownload || 0}</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('adminDashboard.totalDownloadDesc')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm mb-2">{t('adminDashboard.uniqueUsers')}</p>
+                  <p className="text-4xl font-bold text-white">{tokenUsage.uniqueUsers || 0}</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* 用户列表标签页 */}
+        {activeTab === 'users' && (
+          <div className="glass-dark rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-800/50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.name')}</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.email')}</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.tokens')}</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.totalProcessed')}</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.tokensUsed')}</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.memberSince')}</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.role')}</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {users.map((u) => (
+                    <tr key={u.id} className="hover:bg-gray-800/30 transition-colors">
+                      <td className="px-6 py-4 text-sm text-white">{u.name}</td>
+                      <td className="px-6 py-4 text-sm text-gray-300">{u.email}</td>
+                      <td className="px-6 py-4 text-sm text-white">
+                        <span className="inline-flex items-center space-x-1">
+                          <Coins className="h-4 w-4 text-yellow-400" />
+                          <span>{u.tokens || 0}</span>
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-white">{u.totalProcessed || 0}</td>
+                      <td className="px-6 py-4 text-sm text-white">{u.tokensUsed || 0}</td>
+                      <td className="px-6 py-4 text-sm text-gray-300">
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {u.isAdmin ? (
+                          <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded-lg text-xs font-medium">
+                            {t('adminDashboard.admin')}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-gray-700 text-gray-300 rounded-lg text-xs font-medium">
+                            {t('adminDashboard.user')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => {
+                              setSelectedUser(u)
+                              setShowAddTokensModal(true)
+                            }}
+                            className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                            title={t('adminDashboard.addTokens')}
+                          >
+                            <Plus className="h-4 w-4 text-white" />
+                          </button>
+                          {u.id !== user.id && (
+                            <>
+                              <button
+                                onClick={() => handleToggleAdmin(u.id)}
+                                className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                                title={u.isAdmin ? t('adminDashboard.removeAdmin') : t('adminDashboard.makeAdmin')}
+                              >
+                                <Shield className="h-4 w-4 text-white" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u.id, u.name)}
+                                className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                                title={t('adminDashboard.delete')}
+                              >
+                                <Trash2 className="h-4 w-4 text-white" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 充值Token模态框 */}
+        {showAddTokensModal && selectedUser && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="glass-dark rounded-xl p-6 max-w-md w-full">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white">{t('adminDashboard.addTokensToUser')}</h3>
+                <button
+                  onClick={() => {
+                    setShowAddTokensModal(false)
+                    setSelectedUser(null)
+                    setTokenAmount('')
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-gray-300 mb-2">{t('adminDashboard.name')}: {selectedUser.name}</p>
+                  <p className="text-gray-300 mb-4">{t('adminDashboard.email')}: {selectedUser.email}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    {t('adminDashboard.tokenAmount')}
+                  </label>
+                  <input
+                    type="number"
+                    value={tokenAmount}
+                    onChange={(e) => setTokenAmount(e.target.value)}
+                    className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter token amount"
+                    min="1"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleAddTokens}
+                    className="flex-1 btn-primary"
+                  >
+                    {t('adminDashboard.add')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddTokensModal(false)
+                      setSelectedUser(null)
+                      setTokenAmount('')
+                    }}
+                    className="flex-1 btn-secondary"
+                  >
+                    {t('adminDashboard.cancel')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 分析标签页 */}
+        {activeTab === 'analytics' && stats && (
+          <div className="space-y-6">
+            <div className="glass-dark rounded-xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4">{t('adminDashboard.tokenUsageByPeriod')}</h2>
+              <div className="space-y-4">
+                {timeRanges.map(range => {
+                  const usage = stats.tokenUsage[range.value] || { totalUsage: 0, uniqueUsers: 0 }
+                  return (
+                    <div key={range.value} className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
+                      <div>
+                        <p className="text-white font-medium">{range.label}</p>
+                        <p className="text-sm text-gray-400">{t('adminDashboard.uniqueUsers')}: {usage.uniqueUsers}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-blue-400">{usage.totalUsage}</p>
+                        <p className="text-xs text-gray-400">{t('adminDashboard.tokens')}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="glass-dark rounded-xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4">{t('adminDashboard.revenueByPeriod')}</h2>
+              <div className="space-y-4">
+                {timeRanges.map(range => {
+                  const revenue = stats.totalRevenue[range.value] || 0
+                  return (
+                    <div key={range.value} className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
+                      <p className="text-white font-medium">{range.label}</p>
+                      <p className="text-2xl font-bold text-yellow-400">${revenue.toFixed(2)}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
