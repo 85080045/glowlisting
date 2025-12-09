@@ -29,6 +29,43 @@ export default function Login() {
   const [recaptchaToken, setRecaptchaToken] = useState(null)
   const recaptchaRef = useRef(null)
 
+  // 错误信息映射函数，将后端错误转换为友好的提示
+  const getFriendlyError = (errorMessage) => {
+    if (!errorMessage) return t('auth.loginFailed')
+    
+    const errorLower = errorMessage.toLowerCase()
+    
+    // 映射常见错误
+    if (errorLower.includes('invalid credentials') || 
+        errorLower.includes('email or password is incorrect') ||
+        errorLower.includes('incorrect')) {
+      return t('auth.invalidCredentials')
+    }
+    
+    if (errorLower.includes('user already exists') || 
+        errorLower.includes('already exists')) {
+      return t('auth.userExists')
+    }
+    
+    if (errorLower.includes('email and password are required') ||
+        errorLower.includes('please enter both')) {
+      return t('auth.fillAllFields')
+    }
+    
+    if (errorLower.includes('verification code') || 
+        errorLower.includes('verification')) {
+      return t('auth.verificationCodeRequired')
+    }
+    
+    // 如果是401错误，统一显示为凭据错误
+    if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+      return t('auth.invalidCredentials')
+    }
+    
+    // 其他错误直接显示，但确保是友好的
+    return errorMessage
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -89,10 +126,13 @@ export default function Login() {
           navigate('/dashboard')
         }
       } else {
-        setError(result.error || t('auth.loginFailed'))
+        // 使用友好的错误信息映射
+        setError(getFriendlyError(result.error))
       }
     } catch (err) {
-      setError(err.message || t('auth.loginFailed'))
+      // 使用友好的错误信息映射
+      const errorMsg = err.response?.data?.error || err.message
+      setError(getFriendlyError(errorMsg))
     } finally {
       setLoading(false)
     }

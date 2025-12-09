@@ -32,6 +32,8 @@ export const zh = {
     passwordTooShort: '密码至少需要6个字符',
     loginFailed: '登录失败，请检查您的凭据',
     registerFailed: '注册失败，请重试',
+    invalidCredentials: '邮箱或密码错误，请重试',
+    userExists: '该邮箱已被注册，请直接登录',
     processing: '处理中...',
     noAccount: '还没有账户？立即注册',
     haveAccount: '已有账户？立即登录',

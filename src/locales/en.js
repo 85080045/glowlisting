@@ -32,6 +32,8 @@ export const en = {
     passwordTooShort: 'Password must be at least 6 characters',
     loginFailed: 'Login failed. Please check your credentials',
     registerFailed: 'Registration failed. Please try again',
+    invalidCredentials: 'Email or password is incorrect. Please try again',
+    userExists: 'This email is already registered. Please login instead',
     processing: 'Processing...',
     noAccount: "Don't have an account? Register",
     haveAccount: 'Already have an account? Login',

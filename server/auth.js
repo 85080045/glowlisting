@@ -81,12 +81,12 @@ export const registerUser = async (name, email, password) => {
 export const loginUser = async (email, password) => {
   const user = users.find(u => u.email === email)
   if (!user) {
-    throw new Error('Invalid credentials')
+    throw new Error('Email or password is incorrect')
   }
 
   const isValid = await bcrypt.compare(password, user.password)
   if (!isValid) {
-    throw new Error('Invalid credentials')
+    throw new Error('Email or password is incorrect')
   }
 
   return user
