@@ -331,6 +331,14 @@ export default function Login() {
         ) : isForgotPassword ? (
           <div className="glass-dark rounded-2xl p-8 relative">
             <form onSubmit={handleForgotPassword} className="space-y-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  {t('auth.forgotPassword')}
+                </h3>
+                <p className="text-sm text-gray-400">
+                  {t('auth.forgotPasswordSubtitle')}
+                </p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   {t('auth.email')}
@@ -462,10 +470,13 @@ export default function Login() {
                 <label className="block text-sm font-medium text-gray-300">
                   {t('auth.password')}
                 </label>
-                {isLogin && (
+                {isLogin && !isForgotPassword && (
                   <button
                     type="button"
-                    onClick={() => setIsForgotPassword(true)}
+                    onClick={() => {
+                      setIsForgotPassword(true)
+                      setError('')
+                    }}
                     className="text-sm text-blue-400 hover:text-blue-300"
                   >
                     {t('auth.forgotPassword')}
