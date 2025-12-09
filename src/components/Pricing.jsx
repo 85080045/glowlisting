@@ -51,15 +51,31 @@ export default function Pricing() {
         }
         try {
           setLoadingPlan('pro')
+          console.log('Creating checkout session for pro plan...')
           const session = await paymentsService.createCheckoutSession('pro')
+          console.log('Checkout session created:', session)
           if (session?.url) {
             window.location.href = session.url
           } else {
-            alert(t('pricing.checkoutError') || 'Checkout failed, please try again.')
+            console.error('No URL in session response:', session)
+            alert(t('pricing.checkoutError'))
           }
         } catch (err) {
           console.error('Pro checkout error:', err)
-          const errorMsg = err.message || err.response?.data?.error || err.response?.data?.message || t('pricing.checkoutError') || 'Checkout failed, please try again.'
+          console.error('Error details:', {
+            message: err.message,
+            response: err.response?.data,
+            status: err.response?.status
+          })
+          let errorMsg = err.message
+          if (err.response?.data?.message) {
+            errorMsg = err.response.data.message
+          } else if (err.response?.data?.error) {
+            errorMsg = err.response.data.error
+          }
+          if (!errorMsg || errorMsg === 'pricing.checkoutError') {
+            errorMsg = t('pricing.checkoutError')
+          }
           alert(errorMsg)
         } finally {
           setLoadingPlan(null)
@@ -86,15 +102,31 @@ export default function Pricing() {
         }
         try {
           setLoadingPlan('pack')
+          console.log('Creating checkout session for pack plan...')
           const session = await paymentsService.createCheckoutSession('pack')
+          console.log('Checkout session created:', session)
           if (session?.url) {
             window.location.href = session.url
           } else {
-            alert(t('pricing.checkoutError') || 'Checkout failed, please try again.')
+            console.error('No URL in session response:', session)
+            alert(t('pricing.checkoutError'))
           }
         } catch (err) {
           console.error('Pack checkout error:', err)
-          const errorMsg = err.message || err.response?.data?.error || err.response?.data?.message || t('pricing.checkoutError') || 'Checkout failed, please try again.'
+          console.error('Error details:', {
+            message: err.message,
+            response: err.response?.data,
+            status: err.response?.status
+          })
+          let errorMsg = err.message
+          if (err.response?.data?.message) {
+            errorMsg = err.response.data.message
+          } else if (err.response?.data?.error) {
+            errorMsg = err.response.data.error
+          }
+          if (!errorMsg || errorMsg === 'pricing.checkoutError') {
+            errorMsg = t('pricing.checkoutError')
+          }
           alert(errorMsg)
         } finally {
           setLoadingPlan(null)
