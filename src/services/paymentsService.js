@@ -16,20 +16,38 @@ export const paymentsService = {
   },
 
   async createCheckoutSession(planType = 'pro') {
-    const token = localStorage.getItem('glowlisting_token')
-    const successUrl = `${window.location.origin}/payment-success`
-    const cancelUrl = `${window.location.origin}/payment-cancel`
-    const headers = token ? { Authorization: `Bearer ${token}` } : {}
-    const res = await api.post(
-      '/payments/create-checkout-session',
-      {
-        planType,
-        successUrl,
-        cancelUrl,
-      },
-      { headers }
-    )
-    return res.data
+    try {
+      const token = localStorage.getItem('glowlisting_token')
+      if (!token) {
+        throw new Error('Please login to continue')
+      }
+      const successUrl = `${window.location.origin}/payment-success`
+      const cancelUrl = `${window.location.origin}/payment-cancel`
+      const res = await api.post(
+        '/payments/create-checkout-session',
+        {
+          planType,
+          successUrl,
+          cancelUrl,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+      if (!res.data || !res.data.url) {
+        throw new Error(res.data?.error || 'Failed to create checkout session')
+      }
+      return res.data
+    } catch (error) {
+      console.error('Create checkout session error:', error)
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Failed to create checkout session'
+      throw new Error(errorMessage)
+    }
   },
 }
 

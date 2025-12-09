@@ -1785,21 +1785,36 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
   try {
     if (!stripe) {
       console.error('Stripe secret key not configured')
-      return res.status(500).json({ error: 'Stripe secret key is not configured' })
+      return res.status(500).json({ error: 'Stripe secret key is not configured', message: 'Payment service is not available. Please contact support.' })
     }
 
     const { planType = 'pro', successUrl, cancelUrl } = req.body
     const origin = req.headers.origin || FRONTEND_URL
     const userId = req.userId
-    const currentUser = await getUserByIdSafe(userId)
-    const customerEmail = currentUser?.email
+    
+    if (!userId) {
+      console.error('No userId in request')
+      return res.status(401).json({ error: 'User not authenticated', message: 'Please login to continue' })
+    }
 
-    console.log('Creating checkout session:', { planType, userId, customerEmail, origin })
+    const currentUser = await getUserByIdSafe(userId)
+    if (!currentUser) {
+      console.error('User not found:', userId)
+      return res.status(404).json({ error: 'User not found', message: 'User account not found. Please try logging in again.' })
+    }
+
+    const customerEmail = currentUser?.email
+    if (!customerEmail) {
+      console.error('User email not found:', userId)
+      return res.status(400).json({ error: 'User email not found', message: 'Please update your email address in your profile.' })
+    }
+
+    console.log('Creating checkout session:', { planType, userId, customerEmail, origin, successUrl, cancelUrl })
 
     let sessionPayload = {
-      client_reference_id: userId,
+      client_reference_id: String(userId),
       metadata: {
-        userId,
+        userId: String(userId),
         planType,
       },
       success_url: successUrl || `${origin}/payment-success`,
@@ -1812,7 +1827,7 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
         ...sessionPayload,
         mode: 'subscription',
         subscription_data: {
-          metadata: { userId, planType },
+          metadata: { userId: String(userId), planType },
         },
         line_items: [
           {
@@ -1831,7 +1846,7 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
         ...sessionPayload,
         mode: 'payment',
         payment_intent_data: {
-          metadata: { userId, planType },
+          metadata: { userId: String(userId), planType },
         },
         line_items: [
           {
@@ -1845,15 +1860,45 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
         ],
       }
     } else {
-      return res.status(400).json({ error: 'Invalid plan type' })
+      return res.status(400).json({ error: 'Invalid plan type', message: `Plan type "${planType}" is not supported. Please select a valid plan.` })
     }
 
+    console.log('Stripe session payload:', JSON.stringify(sessionPayload, null, 2))
     const session = await stripe.checkout.sessions.create(sessionPayload)
+    console.log('Stripe session created:', { id: session.id, url: session.url })
+
+    if (!session.url) {
+      console.error('Stripe session created but no URL returned:', session)
+      return res.status(500).json({ error: 'Failed to get checkout URL', message: 'Checkout session was created but no URL was returned. Please try again.' })
+    }
 
     res.json({ id: session.id, url: session.url })
   } catch (error) {
-    console.error('Create checkout session error:', error?.response?.data || error.message)
-    res.status(500).json({ error: 'Failed to create checkout session', message: error.message })
+    console.error('Create checkout session error:', {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      statusCode: error.statusCode,
+      raw: error.raw,
+      stack: error.stack
+    })
+    const errorMessage = error.message || 'Failed to create checkout session'
+    const userMessage = error.type === 'StripeCardError' 
+      ? 'Your card was declined. Please check your card details and try again.'
+      : error.type === 'StripeRateLimitError'
+      ? 'Too many requests. Please try again in a moment.'
+      : error.type === 'StripeInvalidRequestError'
+      ? 'Invalid request. Please check your information and try again.'
+      : error.type === 'StripeAPIError'
+      ? 'Payment service error. Please try again later.'
+      : 'Failed to create checkout session. Please try again or contact support.'
+    
+    res.status(error.statusCode || 500).json({ 
+      error: errorMessage,
+      message: userMessage,
+      type: error.type,
+      code: error.code
+    })
   }
 })
 

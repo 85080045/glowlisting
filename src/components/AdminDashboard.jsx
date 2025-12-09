@@ -222,7 +222,8 @@ export default function AdminDashboard() {
 
   const codeToFlag = (code) => {
     if (!code) return ''
-    return code.replace(/./g, (char) =>
+    const regex = /./g
+    return code.replace(regex, (char) =>
       String.fromCodePoint(char.charCodeAt(0) + 127397)
     )
   }
@@ -1113,8 +1114,8 @@ export default function AdminDashboard() {
         )}
 
         {/* 重置密码模态框 */}
-        {resetPasswordUser ? (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        {resetPasswordUser && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="glass-dark rounded-xl p-6 max-w-md w-full">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-white">{t('adminDashboard.resetPassword')}</h3>
@@ -1159,8 +1160,9 @@ export default function AdminDashboard() {
                       }
                       try {
                         const token = localStorage.getItem('glowlisting_token')
+                        const resetUrl = `${API_URL}/admin/users/${resetPasswordUser.id}/reset-password`
                         await axios.post(
-                          `${API_URL}/admin/users/${resetPasswordUser.id}/reset-password`,
+                          resetUrl,
                           { newPassword: resetPasswordValue },
                           { headers: { Authorization: `Bearer ${token}` } }
                         )
@@ -1189,7 +1191,7 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   )
