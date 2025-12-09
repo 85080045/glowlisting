@@ -1113,7 +1113,7 @@ export default function AdminDashboard() {
         )}
 
         {/* 重置密码模态框 */}
-        {resetPasswordUser && (
+        {resetPasswordUser ? (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="glass-dark rounded-xl p-6 max-w-md w-full">
               <div className="flex items-center justify-between mb-4">
@@ -1130,8 +1130,12 @@ export default function AdminDashboard() {
               </div>
               <div className="space-y-4">
                 <div>
-                  <p className="text-gray-300 mb-2">{t('adminDashboard.name')}: {resetPasswordUser.name}</p>
-                  <p className="text-gray-300 mb-4">{t('adminDashboard.email')}: {resetPasswordUser.email}</p>
+                  <p className="text-gray-300 mb-2">
+                    {t('adminDashboard.name')}: {resetPasswordUser.name}
+                  </p>
+                  <p className="text-gray-300 mb-4">
+                    {t('adminDashboard.email')}: {resetPasswordUser.email}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -1155,11 +1159,11 @@ export default function AdminDashboard() {
                       }
                       try {
                         const token = localStorage.getItem('glowlisting_token')
-                        await axios.post(`${API_URL}/admin/users/${resetPasswordUser.id}/reset-password`, {
-                          newPassword: resetPasswordValue,
-                        }, {
-                          headers: { Authorization: `Bearer ${token}` }
-                        })
+                        await axios.post(
+                          `${API_URL}/admin/users/${resetPasswordUser.id}/reset-password`,
+                          { newPassword: resetPasswordValue },
+                          { headers: { Authorization: `Bearer ${token}` } }
+                        )
                         alert(t('adminDashboard.passwordResetSuccess'))
                         setResetPasswordUser(null)
                         setResetPasswordValue('')
@@ -1185,7 +1189,7 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )
