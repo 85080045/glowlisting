@@ -905,6 +905,16 @@ export const zh = {
     },
   },
 
+  // Payment pages
+  payment: {
+    successTitle: '支付成功',
+    successDesc: '购买已确认，您现在可以使用 Pro 功能。',
+    goDashboard: '前往仪表板',
+    cancelTitle: '支付已取消',
+    cancelDesc: '您可以稍后再次尝试或选择其他方案。',
+    backPricing: '返回定价页',
+  },
+
   // Media Inquiry
   mediaInquiry: {
     title: '媒体咨询',

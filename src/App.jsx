@@ -28,6 +28,8 @@ import FAQ from './components/FAQ'
 import Footer from './components/Footer'
 import Login from './components/Login'
 import ResetPassword from './components/ResetPassword'
+import PaymentSuccess from './components/PaymentSuccess'
+import PaymentCancel from './components/PaymentCancel'
 import Dashboard from './components/Dashboard'
 import AccountSettings from './components/AccountSettings'
 import ImageHistory from './components/ImageHistory'
@@ -111,6 +113,8 @@ function App() {
             <Route path="/history" element={<ImageHistory />} />
             <Route path="/subscription" element={<SubscriptionManagement />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/payment-cancel" element={<PaymentCancel />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:postId" element={<Blog />} />

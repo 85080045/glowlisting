@@ -904,5 +904,15 @@ export const en = {
       button: 'Contact Support',
     },
   },
+
+  // Payment pages
+  payment: {
+    successTitle: 'Payment Successful',
+    successDesc: 'Your purchase is confirmed. You now have access to Pro features.',
+    goDashboard: 'Go to Dashboard',
+    cancelTitle: 'Payment canceled',
+    cancelDesc: 'You can try again or pick another plan anytime.',
+    backPricing: 'Back to Pricing',
+  },
 }
 

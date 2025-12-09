@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Zap } from 'lucide-react'
+import { Check, Zap, LogIn } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
@@ -54,10 +54,12 @@ export default function Pricing() {
           const session = await paymentsService.createCheckoutSession('pro')
           if (session?.url) {
             window.location.href = session.url
+          } else {
+            alert(t('pricing.checkoutError') || 'Checkout failed, please try again.')
           }
         } catch (err) {
           console.error('Pro checkout error:', err)
-          alert(t('pricing.checkoutError') || 'Checkout failed, please try again.')
+          alert(err.response?.data?.error || t('pricing.checkoutError') || 'Checkout failed, please try again.')
         } finally {
           setLoadingPlan(null)
         }
@@ -86,10 +88,12 @@ export default function Pricing() {
           const session = await paymentsService.createCheckoutSession('pack')
           if (session?.url) {
             window.location.href = session.url
+          } else {
+            alert(t('pricing.checkoutError') || 'Checkout failed, please try again.')
           }
         } catch (err) {
           console.error('Pack checkout error:', err)
-          alert(t('pricing.checkoutError') || 'Checkout failed, please try again.')
+          alert(err.response?.data?.error || t('pricing.checkoutError') || 'Checkout failed, please try again.')
         } finally {
           setLoadingPlan(null)
         }
