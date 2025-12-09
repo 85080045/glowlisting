@@ -29,6 +29,8 @@ import Footer from './components/Footer'
 import Login from './components/Login'
 import ResetPassword from './components/ResetPassword'
 import Dashboard from './components/Dashboard'
+import AccountSettings from './components/AccountSettings'
+import ImageHistory from './components/ImageHistory'
 import AdminDashboard from './components/AdminDashboard'
 import AboutUs from './components/AboutUs'
 import Blog from './components/Blog'
@@ -104,6 +106,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/settings" element={<AccountSettings />} />
+            <Route path="/history" element={<ImageHistory />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/blog" element={<Blog />} />

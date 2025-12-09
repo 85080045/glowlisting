@@ -44,6 +44,13 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <button
+                onClick={() => navigate('/settings')}
+                className="btn-secondary flex items-center justify-center space-x-2 w-full sm:w-auto"
+              >
+                <Settings className="h-4 w-4 md:h-5 md:w-5" />
+                <span className="text-sm md:text-base">{t('dashboard.settings')}</span>
+              </button>
+              <button
                 onClick={logout}
                 className="btn-secondary flex items-center justify-center space-x-2 w-full sm:w-auto"
               >
@@ -79,8 +86,56 @@ export default function Dashboard() {
           setIsProcessing={setIsProcessing}
         />
 
+        {/* 快速操作 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mt-8 mb-8">
+          <button
+            onClick={() => navigate('/history')}
+            className="glass-dark rounded-xl p-6 hover:scale-105 transition-transform text-left group"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="bg-blue-500/20 w-12 h-12 rounded-lg flex items-center justify-center border border-blue-400/30 group-hover:bg-blue-500/30 transition-colors">
+                <ImageIcon className="h-6 w-6 text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-400">{t('dashboard.viewHistory')}</p>
+                <p className="text-lg font-semibold text-white">{t('dashboard.imageHistory')}</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate('/settings')}
+            className="glass-dark rounded-xl p-6 hover:scale-105 transition-transform text-left group"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="bg-purple-500/20 w-12 h-12 rounded-lg flex items-center justify-center border border-purple-400/30 group-hover:bg-purple-500/30 transition-colors">
+                <Settings className="h-6 w-6 text-purple-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-400">{t('dashboard.accountSettings')}</p>
+                <p className="text-lg font-semibold text-white">{t('dashboard.manageAccount')}</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate('/pricing')}
+            className="glass-dark rounded-xl p-6 hover:scale-105 transition-transform text-left group"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="bg-green-500/20 w-12 h-12 rounded-lg flex items-center justify-center border border-green-400/30 group-hover:bg-green-500/30 transition-colors">
+                <ImageIcon className="h-6 w-6 text-green-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-400">{t('dashboard.upgradePlan')}</p>
+                <p className="text-lg font-semibold text-white">{t('dashboard.getMoreImages')}</p>
+              </div>
+            </div>
+          </button>
+        </div>
+
         {/* 使用统计 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           <div className="glass-dark rounded-xl p-4 md:p-6">
             <div className="flex items-center space-x-3 md:space-x-4">
               <div className="bg-blue-500/20 w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center border border-blue-400/30 flex-shrink-0">

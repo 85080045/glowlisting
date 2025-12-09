@@ -81,10 +81,48 @@ export const en = {
     remainingTokens: 'Remaining Tokens',
     remainingImages: 'Remaining images',
     logout: 'Logout',
+    settings: 'Settings',
     totalProcessed: 'Total Processed',
     memberSince: 'Member Since',
     storageNotice: 'Storage Notice',
     storageNoticeDesc: 'Enhanced images are only stored on our servers for 30 minutes. Please download your processed images promptly to avoid losing them.',
+    viewHistory: 'View History',
+    imageHistory: 'Image History',
+    accountSettings: 'Account Settings',
+    manageAccount: 'Manage Account',
+    upgradePlan: 'Upgrade Plan',
+    getMoreImages: 'Get More Images',
+  },
+  
+  // Settings
+  settings: {
+    title: 'Account Settings',
+    profile: 'Profile Information',
+    changePassword: 'Change Password',
+    currentPassword: 'Current Password',
+    newPassword: 'New Password',
+    saveChanges: 'Save Changes',
+    backToDashboard: 'Back to Dashboard',
+    profileUpdated: 'Profile updated successfully',
+    passwordChanged: 'Password changed successfully',
+    updateFailed: 'Failed to update profile',
+    passwordChangeFailed: 'Failed to change password',
+    fillAllFields: 'Please fill in all fields',
+  },
+  
+  // Image History
+  history: {
+    title: 'Image History',
+    backToDashboard: 'Back to Dashboard',
+    uploadNew: 'Upload New Image',
+    searchPlaceholder: 'Search images...',
+    loading: 'Loading images...',
+    noImages: 'No images yet',
+    noImagesDesc: 'You haven\'t processed any images yet. Start by uploading your first image!',
+    uploadFirst: 'Upload Your First Image',
+    download: 'Download',
+    delete: 'Delete',
+    confirmDelete: 'Are you sure you want to delete this image?',
   },
 
   // Admin Dashboard (separate namespace to avoid conflicts)

@@ -13,6 +13,7 @@ import dotenv from 'dotenv'
 import nodemailer from 'nodemailer'
 import Stripe from 'stripe'
 import sgMail from '@sendgrid/mail'
+import bcrypt from 'bcryptjs'
 
 // 加载环境变量
 dotenv.config()
@@ -610,6 +611,67 @@ app.post('/api/auth/reset-password', async (req, res) => {
     res.json({ success: true, message: 'Password reset successfully' })
   } catch (error) {
     res.status(400).json({ error: error.message })
+  }
+})
+
+// 更新用户个人信息
+app.put('/api/auth/profile', authMiddleware, async (req, res) => {
+  try {
+    const { name, email } = req.body
+    const user = getUserById(req.userId)
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    // 检查邮箱是否已被其他用户使用
+    if (email && email !== user.email) {
+      const existingUser = users.find(u => u.email === email && u.id !== req.userId)
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already in use' })
+      }
+    }
+
+    // 更新用户信息
+    if (name) user.name = name
+    if (email) user.email = email
+
+    const { password: _, ...userWithoutPassword } = user
+    res.json({ success: true, user: userWithoutPassword })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 修改密码
+app.put('/api/auth/change-password', authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+    const user = getUserById(req.userId)
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    // 验证当前密码
+    const isValid = await bcrypt.compare(currentPassword, user.password)
+    if (!isValid) {
+      return res.status(400).json({ error: 'Current password is incorrect' })
+    }
+
+    // 验证新密码
+    const { validatePassword } = await import('./auth.js')
+    const passwordValidation = validatePassword(newPassword)
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.message })
+    }
+
+    // 更新密码
+    user.password = await bcrypt.hash(newPassword, 10)
+
+    res.json({ success: true, message: 'Password changed successfully' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
   }
 })
 

@@ -81,10 +81,48 @@ export const zh = {
     remainingTokens: '剩余次数',
     remainingImages: '剩余可用图片',
     logout: '退出登录',
+    settings: '设置',
     totalProcessed: '已处理总数',
     memberSince: '注册时间',
     storageNotice: '存储提示',
     storageNoticeDesc: '增强后的图片仅在我们的服务器上保存 30 分钟。请及时下载您处理过的图片，以免丢失。',
+    viewHistory: '查看历史',
+    imageHistory: '图片历史',
+    accountSettings: '账户设置',
+    manageAccount: '管理账户',
+    upgradePlan: '升级计划',
+    getMoreImages: '获取更多图片',
+  },
+  
+  // Settings
+  settings: {
+    title: '账户设置',
+    profile: '个人信息',
+    changePassword: '修改密码',
+    currentPassword: '当前密码',
+    newPassword: '新密码',
+    saveChanges: '保存更改',
+    backToDashboard: '返回仪表板',
+    profileUpdated: '个人信息更新成功',
+    passwordChanged: '密码修改成功',
+    updateFailed: '更新失败',
+    passwordChangeFailed: '密码修改失败',
+    fillAllFields: '请填写所有字段',
+  },
+  
+  // Image History
+  history: {
+    title: '图片历史',
+    backToDashboard: '返回仪表板',
+    uploadNew: '上传新图片',
+    searchPlaceholder: '搜索图片...',
+    loading: '加载图片中...',
+    noImages: '还没有图片',
+    noImagesDesc: '您还没有处理过任何图片。开始上传您的第一张图片吧！',
+    uploadFirst: '上传您的第一张图片',
+    download: '下载',
+    delete: '删除',
+    confirmDelete: '确定要删除这张图片吗？',
   },
 
   // Admin Dashboard (separate namespace to avoid conflicts)
