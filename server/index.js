@@ -405,109 +405,48 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     const { getUserByEmail, generatePasswordResetToken } = await import('./auth.js')
     const user = getUserByEmail(email)
 
+    // 确定邮件语言（'zh' 或 'en'）
+    const mailLanguage = language === 'zh' ? 'zh' : 'en'
+
     // 即使用户不存在，也返回成功（防止邮箱枚举攻击）
+    // 但只有在邮件服务配置正确的情况下才返回成功
     if (!user) {
+      // 检查邮件服务是否配置
+      const sendGridApiKey = process.env.SENDGRID_API_KEY
+      const smtpHost = process.env.SMTP_HOST
+      const smtpPort = process.env.SMTP_PORT
+      const smtpUser = process.env.SMTP_USER
+      const smtpPass = process.env.SMTP_PASS
+      
+      if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
+        return res.status(500).json({ 
+          error: mailLanguage === 'zh' 
+            ? '邮件服务未配置，请联系管理员' 
+            : 'Email service not configured. Please contact administrator'
+        })
+      }
+      
       return res.json({ success: true, message: 'If the email exists, a password reset link has been sent' })
     }
 
     // 生成重置token
     const resetToken = generatePasswordResetToken(email)
 
-    // 发送重置邮件
+    // 发送重置邮件 - 使用与注册验证码相同的逻辑
     const sendGridApiKey = process.env.SENDGRID_API_KEY
     const sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || 'hello@glowlisting.ai'
     const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
-    const mailLanguage = language === 'zh' ? 'zh' : 'en'
+    
+    // 备选：SMTP 配置（仅当升级到付费服务时可用）
+    const smtpHost = process.env.SMTP_HOST
+    const smtpPort = process.env.SMTP_PORT
+    const smtpUser = process.env.SMTP_USER
+    const smtpPass = process.env.SMTP_PASS
+    const smtpSecure = process.env.SMTP_SECURE === 'true'
 
-    // 构建重置链接（前端URL + token）
-    const frontendUrl = process.env.FRONTEND_URL || 'https://glowlisting.ai'
-    const resetLink = `${frontendUrl}/reset-password?email=${encodeURIComponent(email)}&token=${resetToken}`
-
-    if (sendGridApiKey) {
-      sgMail.setApiKey(sendGridApiKey)
-      
-      let subject, htmlContent, textContent
-      
-      if (mailLanguage === 'zh') {
-        subject = 'GlowListing 密码重置'
-        htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #3B82F6;">GlowListing 密码重置</h2>
-            <p>您好！</p>
-            <p>我们收到了您的密码重置请求。请点击下面的链接重置您的密码：</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetLink}" style="background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">重置密码</a>
-            </div>
-            <p>如果按钮无法点击，请复制以下链接到浏览器：</p>
-            <p style="color: #6B7280; font-size: 12px; word-break: break-all;">${resetLink}</p>
-            <p>此链接将在 <strong>1小时</strong> 后过期。</p>
-            <p>如果您没有请求重置密码，请忽略此邮件。</p>
-            <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
-              © 2025 GlowListing. 保留所有权利。
-            </p>
-          </div>
-        `
-        textContent = `请点击以下链接重置密码：${resetLink}（1小时内有效）`
-      } else {
-        subject = 'GlowListing Password Reset'
-        htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #3B82F6;">GlowListing Password Reset</h2>
-            <p>Hello!</p>
-            <p>We received a request to reset your password. Please click the link below to reset your password:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetLink}" style="background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
-            </div>
-            <p>If the button doesn't work, copy and paste this link into your browser:</p>
-            <p style="color: #6B7280; font-size: 12px; word-break: break-all;">${resetLink}</p>
-            <p>This link will expire in <strong>1 hour</strong>.</p>
-            <p>If you did not request a password reset, please ignore this email.</p>
-            <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
-              © 2025 GlowListing. All rights reserved.
-            </p>
-          </div>
-        `
-        textContent = `Please click the following link to reset your password: ${resetLink} (valid for 1 hour)`
-      }
-
-      const msg = {
-        to: email,
-        from: {
-          email: sendGridFromEmail,
-          name: fromName,
-        },
-        subject: subject,
-        text: textContent,
-        html: htmlContent,
-      }
-
-      try {
-        await sgMail.send(msg)
-        console.log(`✅ 密码重置邮件已通过 SendGrid 成功发送到 ${email}`)
-      } catch (sendError) {
-        console.error('❌ SendGrid 发送邮件失败:', sendError)
-        console.error('错误代码:', sendError.code)
-        console.error('错误消息:', sendError.message)
-        console.error('错误响应:', sendError.response?.body)
-        
-        // 提供更详细的错误信息
-        let errorMessage = 'Failed to send password reset email'
-        if (sendError.code === 'EENVELOPE') {
-          errorMessage = mailLanguage === 'zh' 
-            ? '发件人邮箱未验证，请联系管理员' 
-            : 'Sender email not verified. Please contact administrator'
-        } else if (sendError.response?.body?.errors) {
-          errorMessage = sendError.response.body.errors[0]?.message || errorMessage
-        }
-        
-        return res.status(500).json({ 
-          error: errorMessage,
-          details: process.env.NODE_ENV === 'development' ? sendError.message : undefined
-        })
-      }
-    } else {
-      // 如果没有配置邮件服务，返回错误
-      console.error('❌ SendGrid API key 未配置')
+    // 检查是否有可用的邮件服务配置
+    if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
+      console.error('❌ 邮件服务未配置')
       return res.status(500).json({ 
         error: mailLanguage === 'zh' 
           ? '邮件服务未配置，请联系管理员' 
@@ -515,10 +454,138 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       })
     }
 
+    // 构建重置链接（前端URL + token）
+    const frontendUrl = process.env.FRONTEND_URL || 'https://glowlisting.ai'
+    const resetLink = `${frontendUrl}/reset-password?email=${encodeURIComponent(email)}&token=${resetToken}`
+
+    // 根据语言生成邮件内容
+    let subject, htmlContent, textContent
+    
+    if (mailLanguage === 'zh') {
+      subject = 'GlowListing 密码重置'
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #3B82F6;">GlowListing 密码重置</h2>
+          <p>您好！</p>
+          <p>我们收到了您的密码重置请求。请点击下面的链接重置您的密码：</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetLink}" style="background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">重置密码</a>
+          </div>
+          <p>如果按钮无法点击，请复制以下链接到浏览器：</p>
+          <p style="color: #6B7280; font-size: 12px; word-break: break-all;">${resetLink}</p>
+          <p>此链接将在 <strong>1小时</strong> 后过期。</p>
+          <p>如果您没有请求重置密码，请忽略此邮件。</p>
+          <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
+            © 2025 GlowListing. 保留所有权利。
+          </p>
+        </div>
+      `
+      textContent = `请点击以下链接重置密码：${resetLink}（1小时内有效）`
+    } else {
+      subject = 'GlowListing Password Reset'
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #3B82F6;">GlowListing Password Reset</h2>
+          <p>Hello!</p>
+          <p>We received a request to reset your password. Please click the link below to reset your password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetLink}" style="background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
+          </div>
+          <p>If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="color: #6B7280; font-size: 12px; word-break: break-all;">${resetLink}</p>
+          <p>This link will expire in <strong>1 hour</strong>.</p>
+          <p>If you did not request a password reset, please ignore this email.</p>
+          <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
+            © 2025 GlowListing. All rights reserved.
+          </p>
+        </div>
+      `
+      textContent = `Please click the following link to reset your password: ${resetLink} (valid for 1 hour)`
+    }
+
+    try {
+      // 优先使用 SendGrid API（推荐，适用于 Render 免费服务）
+      if (sendGridApiKey) {
+        sgMail.setApiKey(sendGridApiKey)
+        
+        const msg = {
+          to: email,
+          from: {
+            email: sendGridFromEmail,
+            name: fromName,
+          },
+          subject: subject,
+          text: textContent,
+          html: htmlContent,
+        }
+
+        await sgMail.send(msg)
+        console.log(`✅ 密码重置邮件已通过 SendGrid 成功发送到 ${email}`)
+      } 
+      // 备选：使用 SMTP（仅当升级到付费服务时可用）
+      else if (smtpHost && smtpPort && smtpUser && smtpPass) {
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: parseInt(smtpPort),
+          secure: smtpSecure,
+          requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+          connectionTimeout: 30000,
+          greetingTimeout: 30000,
+          socketTimeout: 60000,
+          tls: {
+            rejectUnauthorized: false,
+            minVersion: 'TLSv1.2',
+          },
+          debug: process.env.NODE_ENV === 'development',
+          logger: process.env.NODE_ENV === 'development',
+        })
+
+        await transporter.sendMail({
+          from: `"${fromName}" <${smtpUser}>`,
+          to: email,
+          subject: subject,
+          html: htmlContent,
+          text: textContent,
+        })
+
+        console.log(`✅ 密码重置邮件已通过 SMTP 成功发送到 ${email}`)
+      }
+    } catch (emailError) {
+      console.error('❌ 发送密码重置邮件失败:', emailError)
+      console.error('错误代码:', emailError.code)
+      console.error('错误消息:', emailError.message)
+      if (emailError.response?.body) {
+        console.error('错误响应:', emailError.response.body)
+      }
+      
+      // 提供更详细的错误信息
+      let errorMessage = mailLanguage === 'zh' 
+        ? '发送密码重置邮件失败，请稍后重试' 
+        : 'Failed to send password reset email. Please try again later'
+      
+      if (emailError.code === 'EENVELOPE') {
+        errorMessage = mailLanguage === 'zh' 
+          ? '发件人邮箱未验证，请联系管理员' 
+          : 'Sender email not verified. Please contact administrator'
+      } else if (emailError.response?.body?.errors) {
+        errorMessage = emailError.response.body.errors[0]?.message || errorMessage
+      }
+      
+      return res.status(500).json({ 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? emailError.message : undefined
+      })
+    }
+
     res.json({ success: true, message: 'Password reset email sent' })
   } catch (error) {
     console.error('❌ 发送密码重置邮件失败:', error)
     console.error('错误详情:', error.message)
+    const mailLanguage = req.body?.language === 'zh' ? 'zh' : 'en'
     res.status(500).json({ 
       error: mailLanguage === 'zh' 
         ? '发送密码重置邮件失败，请稍后重试' 
