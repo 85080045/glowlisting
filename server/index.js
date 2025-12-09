@@ -798,7 +798,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const user = await getUserByIdSafe(req.userId)
     if (!user) {
-      return res.status(404).json({ error: 'User not found' })
+      return res.status(401).json({ error: 'User not found, please re-login' })
     }
 
     const userTokens = await getUserTokensSafe(req.userId)
@@ -1174,7 +1174,7 @@ app.post('/api/enhance', upload.single('image'), async (req, res) => {
 
     // 使用 nanobanna (Gemini 2.5 Flash Image) API 进行图像增强
     // 参考文档: https://ai.google.dev/gemini-api/docs/image-generation
-    const NANOBANNA_API_KEY = process.env.NANOBANNA_API_KEY || 'AIzaSyCRSRCLsmrqXlTaAoRRlF6a6FQxzJ3oYxo'
+    const NANOBANNA_API_KEY = process.env.NANOBANNA_API_KEY
     // 使用正确的模型: gemini-2.5-flash-image (Nano Banana)
     // 注意：如果免费配额用完，可能需要升级到付费计划
     const NANOBANNA_API_URL = process.env.NANOBANNA_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
@@ -1282,7 +1282,6 @@ B. 室外照片 (Facade/Garden)：
         }
 
         console.log('Sending request to:', NANOBANNA_API_URL)
-        console.log('API Key (first 10 chars):', NANOBANNA_API_KEY.substring(0, 10) + '...')
         console.log('Image size:', base64Image.length, 'bytes')
         console.log('MIME type:', mimeType)
         

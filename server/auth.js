@@ -3,7 +3,8 @@ import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { query } from './db/client.js'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+// 使用稳定的默认 JWT_SECRET，避免每次重启 token 失效；可被环境变量覆盖
+const JWT_SECRET = process.env.JWT_SECRET || 'glowlisting-stable-secret-change-in-prod'
 
 const useDb = !!process.env.DATABASE_URL
 
