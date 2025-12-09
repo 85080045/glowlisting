@@ -1232,7 +1232,8 @@ app.post('/api/enhance', upload.single('image'), async (req, res) => {
       }
       
       const jwt = await import('jsonwebtoken')
-      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production')
+      const JWT_SECRET = process.env.JWT_SECRET || 'glowlisting-stable-secret-change-in-prod'
+      const decoded = jwt.default.verify(token, JWT_SECRET)
       userId = decoded.userId
       userTokens = await getUserTokensSafe(userId)
     } catch (authError) {
