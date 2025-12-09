@@ -136,101 +136,134 @@ app.post('/api/auth/send-verification', async (req, res) => {
     verificationCodes.set(email, { code, expiresAt })
 
     // 发送邮件
+    // 检查SMTP配置
+    const smtpHost = process.env.SMTP_HOST
+    const smtpPort = process.env.SMTP_PORT
+    const smtpUser = process.env.SMTP_USER
+    const smtpPass = process.env.SMTP_PASS
+    const smtpSecure = process.env.SMTP_SECURE === 'true'
+    const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
+
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      console.error('❌ SMTP配置不完整，无法发送邮件')
+      console.log(`⚠️ 验证码（仅用于测试）: ${code} (10分钟内有效)`)
+      return res.status(500).json({ 
+        error: mailLanguage === 'zh' 
+          ? '邮件服务未配置，请联系管理员' 
+          : 'Email service not configured. Please contact administrator'
+      })
+    }
+
     try {
-      // 检查SMTP配置
-      const smtpHost = process.env.SMTP_HOST
-      const smtpPort = process.env.SMTP_PORT
-      const smtpUser = process.env.SMTP_USER
-      const smtpPass = process.env.SMTP_PASS
-      const smtpSecure = process.env.SMTP_SECURE === 'true'
-      const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
+      // 创建邮件传输器，优化连接配置以解决超时问题
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort),
+        secure: smtpSecure, // true for 465, false for other ports
+        requireTLS: !smtpSecure && parseInt(smtpPort) === 587, // 对于587端口使用STARTTLS
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+        connectionTimeout: 30000, // 30秒连接超时
+        greetingTimeout: 30000, // 30秒问候超时
+        socketTimeout: 60000, // 60秒socket超时
+        tls: {
+          rejectUnauthorized: false, // 允许自签名证书（仅用于测试）
+          minVersion: 'TLSv1.2', // 使用 TLS 1.2 或更高版本
+        },
+        debug: process.env.NODE_ENV === 'development', // 开发环境启用调试
+        logger: process.env.NODE_ENV === 'development', // 开发环境记录日志
+      })
 
-      if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-        console.warn('SMTP配置不完整，验证码仅在控制台输出:', code)
-        console.log(`验证码已发送到 ${email}: ${code} (10分钟内有效)`)
+      // 根据语言生成邮件内容
+      let subject, htmlContent, textContent
+      
+      if (mailLanguage === 'zh') {
+        // 中文邮件
+        subject = 'GlowListing 注册验证码'
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #3B82F6;">GlowListing 注册验证码</h2>
+            <p>您好！</p>
+            <p>您的注册验证码是：</p>
+            <div style="background-color: #F3F4F6; border: 2px solid #3B82F6; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+              <h1 style="color: #3B82F6; font-size: 32px; margin: 0; letter-spacing: 5px;">${code}</h1>
+            </div>
+            <p>此验证码在 <strong>10分钟</strong> 内有效。</p>
+            <p>如果您没有请求此验证码，请忽略此邮件。</p>
+            <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
+              © 2025 GlowListing. 保留所有权利。
+            </p>
+          </div>
+        `
+        textContent = `您的验证码是: ${code}，10分钟内有效。`
       } else {
-        // 创建邮件传输器
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: parseInt(smtpPort),
-          secure: smtpSecure, // true for 465, false for other ports
-          requireTLS: !smtpSecure, // 对于587端口使用STARTTLS
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-          tls: {
-            ciphers: 'SSLv3',
-            rejectUnauthorized: false, // 仅用于测试，生产环境应设为true
-          },
-        })
-
-        // 根据语言生成邮件内容
-        let subject, htmlContent, textContent
-        
-        if (mailLanguage === 'zh') {
-          // 中文邮件
-          subject = 'GlowListing 注册验证码'
-          htmlContent = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h2 style="color: #3B82F6;">GlowListing 注册验证码</h2>
-              <p>您好！</p>
-              <p>您的注册验证码是：</p>
-              <div style="background-color: #F3F4F6; border: 2px solid #3B82F6; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-                <h1 style="color: #3B82F6; font-size: 32px; margin: 0; letter-spacing: 5px;">${code}</h1>
-              </div>
-              <p>此验证码在 <strong>10分钟</strong> 内有效。</p>
-              <p>如果您没有请求此验证码，请忽略此邮件。</p>
-              <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
-                © 2025 GlowListing. 保留所有权利。
-              </p>
+        // 英文邮件
+        subject = 'GlowListing Verification Code'
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #3B82F6;">GlowListing Verification Code</h2>
+            <p>Hello!</p>
+            <p>Your verification code is:</p>
+            <div style="background-color: #F3F4F6; border: 2px solid #3B82F6; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+              <h1 style="color: #3B82F6; font-size: 32px; margin: 0; letter-spacing: 5px;">${code}</h1>
             </div>
-          `
-          textContent = `您的验证码是: ${code}，10分钟内有效。`
-        } else {
-          // 英文邮件
-          subject = 'GlowListing Verification Code'
-          htmlContent = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h2 style="color: #3B82F6;">GlowListing Verification Code</h2>
-              <p>Hello!</p>
-              <p>Your verification code is:</p>
-              <div style="background-color: #F3F4F6; border: 2px solid #3B82F6; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-                <h1 style="color: #3B82F6; font-size: 32px; margin: 0; letter-spacing: 5px;">${code}</h1>
-              </div>
-              <p>This code will expire in <strong>10 minutes</strong>.</p>
-              <p>If you did not request this code, please ignore this email.</p>
-              <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
-                © 2025 GlowListing. All rights reserved.
-              </p>
-            </div>
-          `
-          textContent = `Your verification code is: ${code}, valid for 10 minutes.`
-        }
-
-        // 发送邮件
-        await transporter.sendMail({
-          from: `"${fromName}" <${smtpUser}>`,
-          to: email,
-          subject: subject,
-          html: htmlContent,
-          text: textContent,
-        })
-
-        console.log(`✅ 验证码邮件已成功发送到 ${email}`)
+            <p>This code will expire in <strong>10 minutes</strong>.</p>
+            <p>If you did not request this code, please ignore this email.</p>
+            <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
+              © 2025 GlowListing. All rights reserved.
+            </p>
+          </div>
+        `
+        textContent = `Your verification code is: ${code}, valid for 10 minutes.`
       }
+
+      // 发送邮件
+      await transporter.sendMail({
+        from: `"${fromName}" <${smtpUser}>`,
+        to: email,
+        subject: subject,
+        html: htmlContent,
+        text: textContent,
+      })
+
+      console.log(`✅ 验证码邮件已成功发送到 ${email}`)
     } catch (emailError) {
-      console.error('发送邮件失败:', emailError)
-      // 即使邮件发送失败，也返回成功（避免泄露配置问题）
-      // 但在开发环境可以记录错误
-      if (process.env.NODE_ENV === 'development') {
-        console.error('邮件发送错误详情:', emailError.message)
+      console.error('❌ 发送邮件失败:', emailError)
+      console.error('错误代码:', emailError.code)
+      console.error('错误消息:', emailError.message)
+      console.error('SMTP配置:', {
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        user: smtpUser,
+      })
+      
+      // 根据错误类型返回更具体的错误信息
+      let errorMessage
+      if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
+        errorMessage = mailLanguage === 'zh'
+          ? '无法连接到邮件服务器，请检查SMTP配置或网络连接'
+          : 'Cannot connect to email server. Please check SMTP configuration or network connection'
+      } else if (emailError.code === 'EAUTH') {
+        errorMessage = mailLanguage === 'zh'
+          ? '邮箱认证失败，请检查用户名和密码'
+          : 'Email authentication failed. Please check username and password'
+      } else {
+        errorMessage = mailLanguage === 'zh'
+          ? `邮件发送失败: ${emailError.message || '未知错误'}`
+          : `Failed to send email: ${emailError.message || 'Unknown error'}`
       }
+      
+      return res.status(500).json({ error: errorMessage })
     }
 
     res.json({
       success: true,
-      message: 'Verification code sent to your email',
+      message: mailLanguage === 'zh' 
+        ? '验证码已发送到您的邮箱' 
+        : 'Verification code sent to your email',
     })
   } catch (error) {
     console.error('Send verification code error:', error)
@@ -1275,15 +1308,20 @@ app.post('/api/test-email', async (req, res) => {
       host: smtpHost,
       port: parseInt(smtpPort),
       secure: smtpSecure,
-      requireTLS: !smtpSecure, // 对于587端口使用STARTTLS
+      requireTLS: !smtpSecure && parseInt(smtpPort) === 587, // 对于587端口使用STARTTLS
       auth: {
         user: smtpUser,
         pass: smtpPass,
       },
+      connectionTimeout: 30000, // 30秒连接超时
+      greetingTimeout: 30000, // 30秒问候超时
+      socketTimeout: 60000, // 60秒socket超时
       tls: {
-        ciphers: 'SSLv3',
-        rejectUnauthorized: false, // 仅用于测试，生产环境应设为true
+        rejectUnauthorized: false, // 允许自签名证书（仅用于测试）
+        minVersion: 'TLSv1.2', // 使用 TLS 1.2 或更高版本
       },
+      debug: process.env.NODE_ENV === 'development',
+      logger: process.env.NODE_ENV === 'development',
     })
 
     const testCode = '123456' // 测试验证码
