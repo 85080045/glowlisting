@@ -39,6 +39,7 @@ import {
   addTokensToUser,
   getChartData,
   users,
+  getUserByEmail,
 } from './auth.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -626,8 +627,8 @@ app.put('/api/auth/profile', authMiddleware, async (req, res) => {
 
     // 检查邮箱是否已被其他用户使用
     if (email && email !== user.email) {
-      const existingUser = users.find(u => u.email === email && u.id !== req.userId)
-      if (existingUser) {
+      const existingUser = getUserByEmail(email)
+      if (existingUser && existingUser.id !== req.userId) {
         return res.status(400).json({ error: 'Email already in use' })
       }
     }
@@ -672,6 +673,68 @@ app.put('/api/auth/change-password', authMiddleware, async (req, res) => {
     res.json({ success: true, message: 'Password changed successfully' })
   } catch (error) {
     res.status(500).json({ error: error.message })
+  }
+})
+
+// 获取图片历史记录
+app.get('/api/images/history', authMiddleware, async (req, res) => {
+  try {
+    // 这里应该从数据库获取，目前使用内存存储作为示例
+    // 实际应该存储到数据库，包含：imageId, userId, thumbnail, filename, createdAt
+    const imageHistoryDir = path.join(__dirname, 'uploads')
+    const images = []
+    
+    // 读取上传目录中的文件（简化实现，实际应该从数据库查询）
+    if (fs.existsSync(imageHistoryDir)) {
+      const files = fs.readdirSync(imageHistoryDir)
+      const userFiles = files.filter(file => file.startsWith(`hd-`) && file.endsWith('.jpg'))
+      
+      for (const file of userFiles) {
+        const filePath = path.join(imageHistoryDir, file)
+        const stats = fs.statSync(filePath)
+        const imageId = file.replace('hd-', '').replace('.jpg', '')
+        
+        // 生成缩略图
+        const imageBuffer = fs.readFileSync(filePath)
+        const thumbnail = await sharp(imageBuffer)
+          .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 80 })
+          .toBuffer()
+        
+        images.push({
+          id: imageId,
+          filename: `glowlisting-enhanced-${imageId}.jpg`,
+          thumbnail: `data:image/jpeg;base64,${thumbnail.toString('base64')}`,
+          createdAt: stats.birthtime.toISOString(),
+        })
+      }
+    }
+    
+    // 按创建时间倒序排列
+    images.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    
+    res.json({ success: true, images })
+  } catch (error) {
+    console.error('Get image history error:', error)
+    res.status(500).json({ error: 'Failed to fetch image history' })
+  }
+})
+
+// 删除图片
+app.delete('/api/images/:imageId', authMiddleware, async (req, res) => {
+  try {
+    const { imageId } = req.params
+    const imagePath = path.join(__dirname, 'uploads', `hd-${imageId}.jpg`)
+    
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath)
+      res.json({ success: true, message: 'Image deleted successfully' })
+    } else {
+      res.status(404).json({ error: 'Image not found' })
+    }
+  } catch (error) {
+    console.error('Delete image error:', error)
+    res.status(500).json({ error: 'Failed to delete image' })
   }
 })
 
