@@ -189,7 +189,15 @@ export const getUserByIdAsync = async (userId) => {
     return getUserById(userId)
   }
   const result = await query('SELECT id, name, email, is_admin, created_at FROM users WHERE id=$1', [userId])
-  return result.rows[0] || null
+  if (!result.rows.length) return null
+  const row = result.rows[0]
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    isAdmin: row.is_admin,
+    createdAt: row.created_at,
+  }
 }
 
 export const getUserByEmailAsync = async (email) => {
@@ -197,7 +205,15 @@ export const getUserByEmailAsync = async (email) => {
     return getUserByEmail(email)
   }
   const result = await query('SELECT id, name, email, is_admin, created_at FROM users WHERE email=$1', [email])
-  return result.rows[0] || null
+  if (!result.rows.length) return null
+  const row = result.rows[0]
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    isAdmin: row.is_admin,
+    createdAt: row.created_at,
+  }
 }
 
 export const getUserTokens = (userId) => {

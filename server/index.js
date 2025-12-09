@@ -825,7 +825,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 const adminMiddleware = async (req, res, next) => {
   try {
     const user = await getUserByIdSafe(req.userId)
-    if (!user || !user.isAdmin) {
+    if (!user || !(user.isAdmin || user.is_admin)) {
       return res.status(403).json({ error: 'Admin access required' })
     }
     next()
