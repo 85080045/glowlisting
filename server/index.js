@@ -12,6 +12,7 @@ import crypto from 'crypto'
 import dotenv from 'dotenv'
 import nodemailer from 'nodemailer'
 import Stripe from 'stripe'
+import sgMail from '@sendgrid/mail'
 
 // 加载环境变量
 dotenv.config()
@@ -135,17 +136,21 @@ app.post('/api/auth/send-verification', async (req, res) => {
     // 存储验证码
     verificationCodes.set(email, { code, expiresAt })
 
-    // 发送邮件
-    // 检查SMTP配置
+    // 发送邮件 - 优先使用 SendGrid API（Render 免费服务不支持 SMTP 端口）
+    const sendGridApiKey = process.env.SENDGRID_API_KEY
+    const sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || 'hello@glowlisting.ai'
+    const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
+    
+    // 备选：SMTP 配置（仅当升级到付费服务时可用）
     const smtpHost = process.env.SMTP_HOST
     const smtpPort = process.env.SMTP_PORT
     const smtpUser = process.env.SMTP_USER
     const smtpPass = process.env.SMTP_PASS
     const smtpSecure = process.env.SMTP_SECURE === 'true'
-    const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
 
-    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-      console.error('❌ SMTP配置不完整，无法发送邮件')
+    // 检查是否有可用的邮件服务配置
+    if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
+      console.error('❌ 邮件服务未配置')
       console.log(`⚠️ 验证码（仅用于测试）: ${code} (10分钟内有效)`)
       return res.status(500).json({ 
         error: mailLanguage === 'zh' 
@@ -154,81 +159,100 @@ app.post('/api/auth/send-verification', async (req, res) => {
       })
     }
 
+    // 根据语言生成邮件内容
+    let subject, htmlContent, textContent
+    
+    if (mailLanguage === 'zh') {
+      // 中文邮件
+      subject = 'GlowListing 注册验证码'
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #3B82F6;">GlowListing 注册验证码</h2>
+          <p>您好！</p>
+          <p>您的注册验证码是：</p>
+          <div style="background-color: #F3F4F6; border: 2px solid #3B82F6; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+            <h1 style="color: #3B82F6; font-size: 32px; margin: 0; letter-spacing: 5px;">${code}</h1>
+          </div>
+          <p>此验证码在 <strong>10分钟</strong> 内有效。</p>
+          <p>如果您没有请求此验证码，请忽略此邮件。</p>
+          <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
+            © 2025 GlowListing. 保留所有权利。
+          </p>
+        </div>
+      `
+      textContent = `您的验证码是: ${code}，10分钟内有效。`
+    } else {
+      // 英文邮件
+      subject = 'GlowListing Verification Code'
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #3B82F6;">GlowListing Verification Code</h2>
+          <p>Hello!</p>
+          <p>Your verification code is:</p>
+          <div style="background-color: #F3F4F6; border: 2px solid #3B82F6; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+            <h1 style="color: #3B82F6; font-size: 32px; margin: 0; letter-spacing: 5px;">${code}</h1>
+          </div>
+          <p>This code will expire in <strong>10 minutes</strong>.</p>
+          <p>If you did not request this code, please ignore this email.</p>
+          <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
+            © 2025 GlowListing. All rights reserved.
+          </p>
+        </div>
+      `
+      textContent = `Your verification code is: ${code}, valid for 10 minutes.`
+    }
+
     try {
-      // 创建邮件传输器，优化连接配置以解决超时问题
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: parseInt(smtpPort),
-        secure: smtpSecure, // true for 465, false for other ports
-        requireTLS: !smtpSecure && parseInt(smtpPort) === 587, // 对于587端口使用STARTTLS
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-        connectionTimeout: 30000, // 30秒连接超时
-        greetingTimeout: 30000, // 30秒问候超时
-        socketTimeout: 60000, // 60秒socket超时
-        tls: {
-          rejectUnauthorized: false, // 允许自签名证书（仅用于测试）
-          minVersion: 'TLSv1.2', // 使用 TLS 1.2 或更高版本
-        },
-        debug: process.env.NODE_ENV === 'development', // 开发环境启用调试
-        logger: process.env.NODE_ENV === 'development', // 开发环境记录日志
-      })
+      // 优先使用 SendGrid API（推荐，适用于 Render 免费服务）
+      if (sendGridApiKey) {
+        sgMail.setApiKey(sendGridApiKey)
+        
+        const msg = {
+          to: email,
+          from: {
+            email: sendGridFromEmail,
+            name: fromName,
+          },
+          subject: subject,
+          text: textContent,
+          html: htmlContent,
+        }
 
-      // 根据语言生成邮件内容
-      let subject, htmlContent, textContent
-      
-      if (mailLanguage === 'zh') {
-        // 中文邮件
-        subject = 'GlowListing 注册验证码'
-        htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #3B82F6;">GlowListing 注册验证码</h2>
-            <p>您好！</p>
-            <p>您的注册验证码是：</p>
-            <div style="background-color: #F3F4F6; border: 2px solid #3B82F6; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-              <h1 style="color: #3B82F6; font-size: 32px; margin: 0; letter-spacing: 5px;">${code}</h1>
-            </div>
-            <p>此验证码在 <strong>10分钟</strong> 内有效。</p>
-            <p>如果您没有请求此验证码，请忽略此邮件。</p>
-            <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
-              © 2025 GlowListing. 保留所有权利。
-            </p>
-          </div>
-        `
-        textContent = `您的验证码是: ${code}，10分钟内有效。`
-      } else {
-        // 英文邮件
-        subject = 'GlowListing Verification Code'
-        htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #3B82F6;">GlowListing Verification Code</h2>
-            <p>Hello!</p>
-            <p>Your verification code is:</p>
-            <div style="background-color: #F3F4F6; border: 2px solid #3B82F6; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-              <h1 style="color: #3B82F6; font-size: 32px; margin: 0; letter-spacing: 5px;">${code}</h1>
-            </div>
-            <p>This code will expire in <strong>10 minutes</strong>.</p>
-            <p>If you did not request this code, please ignore this email.</p>
-            <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
-              © 2025 GlowListing. All rights reserved.
-            </p>
-          </div>
-        `
-        textContent = `Your verification code is: ${code}, valid for 10 minutes.`
+        await sgMail.send(msg)
+        console.log(`✅ 验证码邮件已通过 SendGrid 成功发送到 ${email}`)
+      } 
+      // 备选：使用 SMTP（仅当升级到付费服务时可用）
+      else if (smtpHost && smtpPort && smtpUser && smtpPass) {
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: parseInt(smtpPort),
+          secure: smtpSecure, // true for 465, false for other ports
+          requireTLS: !smtpSecure && parseInt(smtpPort) === 587, // 对于587端口使用STARTTLS
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+          connectionTimeout: 30000, // 30秒连接超时
+          greetingTimeout: 30000, // 30秒问候超时
+          socketTimeout: 60000, // 60秒socket超时
+          tls: {
+            rejectUnauthorized: false, // 允许自签名证书（仅用于测试）
+            minVersion: 'TLSv1.2', // 使用 TLS 1.2 或更高版本
+          },
+          debug: process.env.NODE_ENV === 'development',
+          logger: process.env.NODE_ENV === 'development',
+        })
+
+        await transporter.sendMail({
+          from: `"${fromName}" <${smtpUser}>`,
+          to: email,
+          subject: subject,
+          html: htmlContent,
+          text: textContent,
+        })
+
+        console.log(`✅ 验证码邮件已通过 SMTP 成功发送到 ${email}`)
       }
-
-      // 发送邮件
-      await transporter.sendMail({
-        from: `"${fromName}" <${smtpUser}>`,
-        to: email,
-        subject: subject,
-        html: htmlContent,
-        text: textContent,
-      })
-
-      console.log(`✅ 验证码邮件已成功发送到 ${email}`)
     } catch (emailError) {
       console.error('❌ 发送邮件失败:', emailError)
       console.error('错误代码:', emailError.code)
@@ -1293,36 +1317,19 @@ app.post('/api/test-email', async (req, res) => {
       return res.status(400).json({ error: 'Email address is required' })
     }
 
+    const sendGridApiKey = process.env.SENDGRID_API_KEY
+    const sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || 'hello@glowlisting.ai'
+    const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
+    
     const smtpHost = process.env.SMTP_HOST
     const smtpPort = process.env.SMTP_PORT
     const smtpUser = process.env.SMTP_USER
     const smtpPass = process.env.SMTP_PASS
     const smtpSecure = process.env.SMTP_SECURE === 'true'
-    const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
 
-    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-      return res.status(500).json({ error: 'SMTP configuration is incomplete' })
+    if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
+      return res.status(500).json({ error: 'Email service configuration is incomplete' })
     }
-
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: parseInt(smtpPort),
-      secure: smtpSecure,
-      requireTLS: !smtpSecure && parseInt(smtpPort) === 587, // 对于587端口使用STARTTLS
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-      connectionTimeout: 30000, // 30秒连接超时
-      greetingTimeout: 30000, // 30秒问候超时
-      socketTimeout: 60000, // 60秒socket超时
-      tls: {
-        rejectUnauthorized: false, // 允许自签名证书（仅用于测试）
-        minVersion: 'TLSv1.2', // 使用 TLS 1.2 或更高版本
-      },
-      debug: process.env.NODE_ENV === 'development',
-      logger: process.env.NODE_ENV === 'development',
-    })
 
     const testCode = '123456' // 测试验证码
     const mailLanguage = language === 'zh' ? 'zh' : 'en'
@@ -1350,6 +1357,7 @@ app.post('/api/test-email', async (req, res) => {
           </p>
         </div>
       `
+      textContent = `测试验证码: ${testCode}`
       textContent = `这是一封测试邮件。测试验证码是: ${testCode}`
     } else {
       // 英文测试邮件
@@ -1375,21 +1383,65 @@ app.post('/api/test-email', async (req, res) => {
     console.log(`📧 邮件主题: ${subject}`)
     console.log(`📧 邮件语言: ${mailLanguage}`)
     
-    await transporter.sendMail({
-      from: `"${fromName}" <${smtpUser}>`,
-      to: to,
-      subject: subject,
-      html: htmlContent,
-      text: textContent,
-    })
+    // 优先使用 SendGrid API
+    if (sendGridApiKey) {
+      sgMail.setApiKey(sendGridApiKey)
+      
+      const msg = {
+        to: to,
+        from: {
+          email: sendGridFromEmail,
+          name: fromName,
+        },
+        subject: subject,
+        text: textContent,
+        html: htmlContent,
+      }
 
-    console.log(`✅ 测试邮件已成功发送到 ${to} (${mailLanguage === 'zh' ? '中文' : '英文'})`)
+      await sgMail.send(msg)
+      console.log(`✅ 测试邮件已通过 SendGrid 成功发送到 ${to} (${mailLanguage === 'zh' ? '中文' : '英文'})`)
+    } 
+    // 备选：使用 SMTP
+    else if (smtpHost && smtpPort && smtpUser && smtpPass) {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort),
+        secure: smtpSecure,
+        requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 60000,
+        tls: {
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2',
+        },
+        debug: process.env.NODE_ENV === 'development',
+        logger: process.env.NODE_ENV === 'development',
+      })
+
+      await transporter.sendMail({
+        from: `"${fromName}" <${smtpUser}>`,
+        to: to,
+        subject: subject,
+        html: htmlContent,
+        text: textContent,
+      })
+
+      console.log(`✅ 测试邮件已通过 SMTP 成功发送到 ${to} (${mailLanguage === 'zh' ? '中文' : '英文'})`)
+    }
+
     res.json({
       success: true,
       message: `Test email sent successfully to ${to}`,
     })
   } catch (error) {
     console.error('发送测试邮件失败:', error)
+    console.error('错误代码:', error.code)
+    console.error('错误消息:', error.message)
     res.status(500).json({
       success: false,
       error: 'Failed to send test email',
