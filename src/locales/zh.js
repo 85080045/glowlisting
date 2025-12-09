@@ -92,6 +92,8 @@ export const zh = {
     manageAccount: '管理账户',
     upgradePlan: '升级计划',
     getMoreImages: '获取更多图片',
+    manageSubscription: '管理订阅',
+    subscription: '订阅',
   },
   
   // Settings
@@ -123,6 +125,26 @@ export const zh = {
     download: '下载',
     delete: '删除',
     confirmDelete: '确定要删除这张图片吗？',
+  },
+  
+  // Subscription Management
+  subscription: {
+    title: '订阅管理',
+    backToDashboard: '返回仪表板',
+    currentPlan: '当前计划',
+    active: '激活',
+    inactive: '未激活',
+    imagesRemaining: '剩余图片',
+    nextBilling: '下次账单日期',
+    upgrade: '升级计划',
+    changePlan: '更改计划',
+    cancel: '取消订阅',
+    confirmCancel: '确定要取消订阅吗？',
+    noSubscription: '没有活跃订阅',
+    getStarted: '开始使用',
+    billingHistory: '账单历史',
+    noBillingHistory: '还没有账单历史',
+    downloadInvoice: '下载发票',
   },
 
   // Admin Dashboard (separate namespace to avoid conflicts)

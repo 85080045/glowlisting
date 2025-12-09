@@ -92,6 +92,8 @@ export const en = {
     manageAccount: 'Manage Account',
     upgradePlan: 'Upgrade Plan',
     getMoreImages: 'Get More Images',
+    manageSubscription: 'Manage Subscription',
+    subscription: 'Subscription',
   },
   
   // Settings

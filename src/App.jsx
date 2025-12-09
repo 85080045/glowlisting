@@ -31,6 +31,7 @@ import ResetPassword from './components/ResetPassword'
 import Dashboard from './components/Dashboard'
 import AccountSettings from './components/AccountSettings'
 import ImageHistory from './components/ImageHistory'
+import SubscriptionManagement from './components/SubscriptionManagement'
 import AdminDashboard from './components/AdminDashboard'
 import AboutUs from './components/AboutUs'
 import Blog from './components/Blog'
@@ -108,6 +109,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/settings" element={<AccountSettings />} />
             <Route path="/history" element={<ImageHistory />} />
+            <Route path="/subscription" element={<SubscriptionManagement />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/blog" element={<Blog />} />
