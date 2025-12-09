@@ -329,10 +329,10 @@ export default function Login() {
             </button>
           </div>
         ) : isForgotPassword ? (
-          <div className="glass-dark rounded-2xl p-8 relative z-10">
+          <div className="glass-dark rounded-2xl p-8 relative z-10" style={{ minHeight: '300px' }}>
             <form onSubmit={handleForgotPassword} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   {t('auth.email')}
                 </label>
                 <div className="relative">
