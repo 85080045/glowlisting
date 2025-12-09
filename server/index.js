@@ -14,9 +14,11 @@ import nodemailer from 'nodemailer'
 import Stripe from 'stripe'
 import sgMail from '@sendgrid/mail'
 import bcrypt from 'bcryptjs'
+import { query } from './db/client.js'
 
 // 加载环境变量
 dotenv.config()
+const useDb = !!process.env.DATABASE_URL
 import {
   authMiddleware,
   registerUser,
@@ -40,6 +42,21 @@ import {
   getChartData,
   users,
   getUserByEmail,
+  // async db helpers
+  getUserByIdAsync,
+  getUserByEmailAsync,
+  getUserTokensAsync,
+  setUserTokensAsync,
+  decrementUserTokensAsync,
+  recordTokenUsageAsync,
+  getAllUsersAsync,
+  getTokenUsageStatsAsync,
+  getRevenueStatsAsync,
+  getSubscriptionStatsAsync,
+  deleteUserAsync,
+  toggleUserAdminAsync,
+  addTokensToUserAsync,
+  getChartDataAsync,
 } from './auth.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -47,6 +64,22 @@ const __dirname = path.dirname(__filename)
 
 const app = express()
 const PORT = process.env.PORT || 3001
+
+// Helper wrappers to support DB or in-memory
+const getUserByIdSafe = async (id) => useDb ? await getUserByIdAsync(id) : getUserById(id)
+const getUserByEmailSafe = async (email) => useDb ? await getUserByEmailAsync(email) : getUserByEmail(email)
+const getUserTokensSafe = async (id) => useDb ? await getUserTokensAsync(id) : getUserTokens(id)
+const setUserTokensSafe = async (id, amount) => useDb ? await setUserTokensAsync(id, amount) : setUserTokens(id, amount)
+const decrementUserTokensSafe = async (id, action) => useDb ? await decrementUserTokensAsync(id, action) : decrementUserTokens(id, action)
+const recordTokenUsageSafe = async (id, action, imageId) => useDb ? await recordTokenUsageAsync(id, action, imageId) : recordTokenUsage(id, action, imageId)
+const getAllUsersSafe = async () => useDb ? await getAllUsersAsync() : getAllUsers()
+const getTokenUsageStatsSafe = async (s, e) => useDb ? await getTokenUsageStatsAsync(s, e) : getTokenUsageStats(s, e)
+const getRevenueStatsSafe = async (s, e) => useDb ? await getRevenueStatsAsync(s, e) : getRevenueStats(s, e)
+const getSubscriptionStatsSafe = async () => useDb ? await getSubscriptionStatsAsync() : getSubscriptionStats()
+const deleteUserSafe = async (id) => useDb ? await deleteUserAsync(id) : deleteUser(id)
+const toggleUserAdminSafe = async (id) => useDb ? await toggleUserAdminAsync(id) : toggleUserAdmin(id)
+const addTokensToUserSafe = async (id, amount) => useDb ? await addTokensToUserAsync(id, amount) : addTokensToUser(id, amount)
+const getChartDataSafe = async (s, e) => useDb ? await getChartDataAsync(s, e) : getChartData(s, e)
 const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
@@ -352,7 +385,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     const user = await registerUser(name, email, password)
     const token = generateToken(user.id)
-    const userTokens = getUserTokens(user.id)
+    const userTokens = await getUserTokensSafe(user.id)
 
     // 移除密码
     const { password: _, ...userWithoutPassword } = user
@@ -379,7 +412,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const user = await loginUser(email, password)
     const token = generateToken(user.id)
-    const userTokens = getUserTokens(user.id)
+    const userTokens = await getUserTokensSafe(user.id)
 
     // 移除密码
     const { password: _, ...userWithoutPassword } = user
@@ -404,8 +437,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' })
     }
 
-    const { getUserByEmail, generatePasswordResetToken } = await import('./auth.js')
-    const user = getUserByEmail(email)
+    const { generatePasswordResetToken } = await import('./auth.js')
+    const user = await getUserByEmailSafe(email)
 
     // 确定邮件语言（'zh' 或 'en'）
     const mailLanguage = language === 'zh' ? 'zh' : 'en'
@@ -619,7 +652,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 app.put('/api/auth/profile', authMiddleware, async (req, res) => {
   try {
     const { name, email } = req.body
-    const user = getUserById(req.userId)
+    const user = await getUserByIdSafe(req.userId)
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' })
@@ -627,18 +660,27 @@ app.put('/api/auth/profile', authMiddleware, async (req, res) => {
 
     // 检查邮箱是否已被其他用户使用
     if (email && email !== user.email) {
-      const existingUser = getUserByEmail(email)
+      const existingUser = await getUserByEmailSafe(email)
       if (existingUser && existingUser.id !== req.userId) {
         return res.status(400).json({ error: 'Email already in use' })
       }
     }
 
     // 更新用户信息
-    if (name) user.name = name
-    if (email) user.email = email
-
-    const { password: _, ...userWithoutPassword } = user
-    res.json({ success: true, user: userWithoutPassword })
+    if (useDb) {
+      await query('UPDATE users SET name=$1, email=$2 WHERE id=$3', [
+        name || user.name,
+        email || user.email,
+        req.userId,
+      ])
+      const updated = await getUserByIdSafe(req.userId)
+      res.json({ success: true, user: updated })
+    } else {
+      if (name) user.name = name
+      if (email) user.email = email
+      const { password: _, ...userWithoutPassword } = user
+      res.json({ success: true, user: userWithoutPassword })
+    }
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -648,14 +690,21 @@ app.put('/api/auth/profile', authMiddleware, async (req, res) => {
 app.put('/api/auth/change-password', authMiddleware, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body
-    const user = getUserById(req.userId)
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' })
+    let hashedPassword = null
+    if (useDb) {
+      const result = await query('SELECT password_hash FROM users WHERE id=$1', [req.userId])
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' })
+      }
+      hashedPassword = result.rows[0].password_hash
+    } else {
+      const user = getUserById(req.userId)
+      if (!user) return res.status(404).json({ error: 'User not found' })
+      hashedPassword = user.password
     }
 
     // 验证当前密码
-    const isValid = await bcrypt.compare(currentPassword, user.password)
+    const isValid = await bcrypt.compare(currentPassword, hashedPassword)
     if (!isValid) {
       return res.status(400).json({ error: 'Current password is incorrect' })
     }
@@ -668,7 +717,13 @@ app.put('/api/auth/change-password', authMiddleware, async (req, res) => {
     }
 
     // 更新密码
-    user.password = await bcrypt.hash(newPassword, 10)
+    const newHash = await bcrypt.hash(newPassword, 10)
+    if (useDb) {
+      await query('UPDATE users SET password_hash=$1 WHERE id=$2', [newHash, req.userId])
+    } else {
+      const user = getUserById(req.userId)
+      user.password = newHash
+    }
 
     res.json({ success: true, message: 'Password changed successfully' })
   } catch (error) {
@@ -739,17 +794,17 @@ app.delete('/api/images/:imageId', authMiddleware, async (req, res) => {
 })
 
 // 获取当前用户信息
-app.get('/api/auth/me', authMiddleware, (req, res) => {
+app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
-    const user = getUserById(req.userId)
+    const user = await getUserByIdSafe(req.userId)
     if (!user) {
       return res.status(404).json({ error: 'User not found' })
     }
 
-    const userTokens = getUserTokens(req.userId)
+    const userTokens = await getUserTokensSafe(req.userId)
 
-    // 移除密码
-    const { password: _, ...userWithoutPassword } = user
+    // 移除密码（DB 版本已不返回密码）
+    const { password: _, password_hash, ...userWithoutPassword } = user
 
     // 添加活跃session
     addActiveSession(req.userId)
@@ -767,9 +822,9 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
 // ==================== 管理员 API ====================
 
 // 检查是否为管理员
-const adminMiddleware = (req, res, next) => {
+const adminMiddleware = async (req, res, next) => {
   try {
-    const user = getUserById(req.userId)
+    const user = await getUserByIdSafe(req.userId)
     if (!user || !user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' })
     }
@@ -780,7 +835,7 @@ const adminMiddleware = (req, res, next) => {
 }
 
 // 获取统计数据
-app.get('/api/admin/stats', authMiddleware, adminMiddleware, (req, res) => {
+app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -815,13 +870,14 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, (req, res) => {
       const customEnd = new Date(req.query.endDate)
       customEnd.setHours(23, 59, 59, 999) // 设置为当天的最后一刻
       
+      const customRevenue = await getRevenueStatsSafe(customStart, customEnd)
+      const customTokenUsage = await getTokenUsageStatsSafe(customStart, customEnd)
       customStats = {
-        totalRevenue: getRevenueStats(customStart, customEnd).totalRevenue,
-        tokenUsage: getTokenUsageStats(customStart, customEnd),
+        totalRevenue: customRevenue.totalRevenue,
+        tokenUsage: customTokenUsage,
       }
       
-      // 生成图表数据（按日期分组）
-      chartData = getChartData(customStart, customEnd)
+      chartData = await getChartDataSafe(customStart, customEnd)
     } else {
       // 根据timeRange生成图表数据
       let chartStart, chartEnd
@@ -856,40 +912,51 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, (req, res) => {
           chartEnd = now
           break
       }
-      chartData = getChartData(chartStart, chartEnd)
+      chartData = await getChartDataSafe(chartStart, chartEnd)
     }
 
+    const revenueToday = await getRevenueStatsSafe(today, now)
+    const revenueYesterday = await getRevenueStatsSafe(yesterday, new Date(yesterday.getTime() + 86400000 - 1))
+    const revenueWeek = await getRevenueStatsSafe(thisWeek, now)
+    const revenueLastWeek = await getRevenueStatsSafe(lastWeek, new Date(thisWeek.getTime() - 1))
+    const revenueMonth = await getRevenueStatsSafe(thisMonth, now)
+    const revenueYear = await getRevenueStatsSafe(thisYear, now)
+    const revenueAll = await getRevenueStatsSafe(allTime, now)
+
+    const tokenToday = await getTokenUsageStatsSafe(today, now)
+    const tokenYesterday = await getTokenUsageStatsSafe(yesterday, new Date(yesterday.getTime() + 86400000 - 1))
+    const tokenWeek = await getTokenUsageStatsSafe(thisWeek, now)
+    const tokenLastWeek = await getTokenUsageStatsSafe(lastWeek, new Date(thisWeek.getTime() - 1))
+    const tokenMonth = await getTokenUsageStatsSafe(thisMonth, now)
+    const tokenYear = await getTokenUsageStatsSafe(thisYear, now)
+    const tokenAll = await getTokenUsageStatsSafe(allTime, now)
+
+    const totalUsersCount = useDb
+      ? Number((await query('SELECT COUNT(*) FROM users')).rows[0].count)
+      : users.length
+
     const stats = {
-      // 在线人数
       activeUsers: getActiveSessionsCount(),
-      
-      // 注册用户数
-      totalUsers: users.length,
-      
-      // 总收入
+      totalUsers: totalUsersCount,
       totalRevenue: {
-        today: getRevenueStats(today, now).totalRevenue,
-        yesterday: getRevenueStats(yesterday, new Date(yesterday.getTime() + 86400000 - 1)).totalRevenue,
-        weekToDate: getRevenueStats(thisWeek, now).totalRevenue,
-        lastWeek: getRevenueStats(lastWeek, new Date(thisWeek.getTime() - 1)).totalRevenue,
-        monthToDate: getRevenueStats(thisMonth, now).totalRevenue,
-        yearToDate: getRevenueStats(thisYear, now).totalRevenue,
-        allTime: getRevenueStats(allTime, now).totalRevenue,
+        today: revenueToday.totalRevenue,
+        yesterday: revenueYesterday.totalRevenue,
+        weekToDate: revenueWeek.totalRevenue,
+        lastWeek: revenueLastWeek.totalRevenue,
+        monthToDate: revenueMonth.totalRevenue,
+        yearToDate: revenueYear.totalRevenue,
+        allTime: revenueAll.totalRevenue,
         ...(customStats && { custom: customStats.totalRevenue }),
       },
-      
-      // 总订阅数
-      subscriptions: getSubscriptionStats(),
-      
-      // Token消耗情况
+      subscriptions: await getSubscriptionStatsSafe(),
       tokenUsage: {
-        today: getTokenUsageStats(today, now),
-        yesterday: getTokenUsageStats(yesterday, new Date(yesterday.getTime() + 86400000 - 1)),
-        weekToDate: getTokenUsageStats(thisWeek, now),
-        lastWeek: getTokenUsageStats(lastWeek, new Date(thisWeek.getTime() - 1)),
-        monthToDate: getTokenUsageStats(thisMonth, now),
-        yearToDate: getTokenUsageStats(thisYear, now),
-        allTime: getTokenUsageStats(allTime, now),
+        today: tokenToday,
+        yesterday: tokenYesterday,
+        weekToDate: tokenWeek,
+        lastWeek: tokenLastWeek,
+        monthToDate: tokenMonth,
+        yearToDate: tokenYear,
+        allTime: tokenAll,
         ...(customStats && { custom: customStats.tokenUsage }),
       },
     }
@@ -902,9 +969,9 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, (req, res) => {
 })
 
 // 获取所有用户列表
-app.get('/api/admin/users', authMiddleware, adminMiddleware, (req, res) => {
+app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const allUsers = getAllUsers()
+    const allUsers = await getAllUsersSafe()
     res.json({ success: true, users: allUsers })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -912,7 +979,7 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, (req, res) => {
 })
 
 // 删除用户
-app.delete('/api/admin/users/:userId', authMiddleware, adminMiddleware, (req, res) => {
+app.delete('/api/admin/users/:userId', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { userId } = req.params
     
@@ -921,7 +988,7 @@ app.delete('/api/admin/users/:userId', authMiddleware, adminMiddleware, (req, re
       return res.status(400).json({ error: 'Cannot delete yourself' })
     }
     
-    deleteUser(userId)
+    await deleteUserSafe(userId)
     res.json({ success: true, message: 'User deleted successfully' })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -929,7 +996,7 @@ app.delete('/api/admin/users/:userId', authMiddleware, adminMiddleware, (req, re
 })
 
 // 切换用户管理员权限
-app.put('/api/admin/users/:userId/toggle-admin', authMiddleware, adminMiddleware, (req, res) => {
+app.put('/api/admin/users/:userId/toggle-admin', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { userId } = req.params
     
@@ -938,8 +1005,8 @@ app.put('/api/admin/users/:userId/toggle-admin', authMiddleware, adminMiddleware
       return res.status(400).json({ error: 'Cannot modify your own admin status' })
     }
     
-    const user = toggleUserAdmin(userId)
-    const { password, ...userWithoutPassword } = user
+    const user = await toggleUserAdminSafe(userId)
+    const { password, password_hash, ...userWithoutPassword } = user
     
     res.json({ success: true, user: userWithoutPassword })
   } catch (error) {
@@ -948,7 +1015,7 @@ app.put('/api/admin/users/:userId/toggle-admin', authMiddleware, adminMiddleware
 })
 
 // 为用户充值Token
-app.post('/api/admin/users/:userId/tokens', authMiddleware, adminMiddleware, (req, res) => {
+app.post('/api/admin/users/:userId/tokens', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { userId } = req.params
     const { amount } = req.body
@@ -957,7 +1024,7 @@ app.post('/api/admin/users/:userId/tokens', authMiddleware, adminMiddleware, (re
       return res.status(400).json({ error: 'Invalid token amount' })
     }
     
-    const newTokenCount = addTokensToUser(userId, amount)
+    const newTokenCount = await addTokensToUserSafe(userId, amount)
     res.json({ success: true, tokens: newTokenCount, message: 'Tokens added successfully' })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -997,7 +1064,7 @@ app.post('/api/enhance', upload.single('image'), async (req, res) => {
       const jwt = await import('jsonwebtoken')
       const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production')
       userId = decoded.userId
-      userTokens = getUserTokens(userId)
+      userTokens = await getUserTokensSafe(userId)
     } catch (authError) {
       // 如果token验证失败，要求用户登录
       console.warn('Auth check failed, requiring login')
@@ -1399,13 +1466,8 @@ B. 室外照片 (Facade/Garden)：
         let remainingTokens = null
         if (userId) {
           // 消耗一次（1 token = 1 image）
-          remainingTokens = decrementUserTokens(userId, 'process')
-          recordTokenUsage(userId, 'process')
-          const user = getUserById(userId)
-          if (user) {
-            user.totalProcessed = (user.totalProcessed || 0) + 1
-            user.tokensUsed = (user.tokensUsed || 0) + 1
-          }
+          remainingTokens = await decrementUserTokensSafe(userId, 'process')
+          await recordTokenUsageSafe(userId, 'process')
         }
 
         // 设置响应头包含剩余token
@@ -1515,7 +1577,8 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
     // 设置响应头
     res.setHeader('Content-Type', 'image/jpeg')
     res.setHeader('Content-Disposition', `attachment; filename="glowlisting-enhanced-${imageId}.jpg"`)
-    res.setHeader('X-Tokens-Remaining', getUserTokens(userId).toString())
+    const remaining = await getUserTokensSafe(userId)
+    res.setHeader('X-Tokens-Remaining', remaining.toString())
     
     // 发送文件
     const fileStream = fs.createReadStream(hdImagePath)
@@ -1641,15 +1704,15 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
       const planType = session.metadata?.planType
 
       if (userId && planType === 'pack') {
-        addTokensToUser(userId, PACK_ONETIME.images)
+        await addTokensToUserSafe(userId, PACK_ONETIME.images)
       } else if (userId && planType === 'pro') {
-        setUserTokens(userId, PLAN_PRO.imagesPerMonth)
+        await setUserTokensSafe(userId, PLAN_PRO.imagesPerMonth)
       }
     } else if (event.type === 'invoice.payment_succeeded') {
       const invoice = event.data.object
       const userId = invoice.metadata?.userId || invoice.customer_email // fallback
       if (userId) {
-        setUserTokens(userId, PLAN_PRO.imagesPerMonth)
+        await setUserTokensSafe(userId, PLAN_PRO.imagesPerMonth)
       }
     } else if (event.type === 'customer.subscription.deleted' || event.type === 'invoice.payment_failed') {
       const subscription = event.data.object

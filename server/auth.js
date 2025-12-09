@@ -1,12 +1,15 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
+import { query } from './db/client.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
-// 简单的内存数据库（生产环境应使用真实数据库）
+const useDb = !!process.env.DATABASE_URL
+
+// 简单的内存数据库（生产环境应使用真实数据库，已改为优先使用 Postgres）
 const users = []
-const tokens = new Map() // userId -> token count
+const tokens = new Map() // userId -> token count (fallback for无数据库)
 const activeSessions = new Set() // 在线用户session ID集合
 const tokenUsageHistory = [] // Token使用历史记录 { userId, timestamp, action }
 const revenueHistory = [] // 收入记录 { userId, amount, timestamp, type }
@@ -73,19 +76,45 @@ export const validatePassword = (password) => {
 }
 
 export const registerUser = async (name, email, password) => {
-  // 检查用户是否已存在
-  const existingUser = users.find(u => u.email === email)
-  if (existingUser) {
-    throw new Error('User already exists')
-  }
-
   // 验证密码
   const passwordValidation = validatePassword(password)
   if (!passwordValidation.valid) {
     throw new Error(passwordValidation.message)
   }
 
-  // 创建新用户
+  if (useDb) {
+    const existing = await query('SELECT id FROM users WHERE email=$1', [email])
+    if (existing.rows.length > 0) {
+      throw new Error('User already exists')
+    }
+    const hashedPassword = await bcrypt.hash(password, 10)
+    const insertUser = await query(
+      'INSERT INTO users (name, email, password_hash, is_admin) VALUES ($1,$2,$3,$4) RETURNING id, name, email, is_admin, created_at',
+      [name, email, hashedPassword, false]
+    )
+    const user = insertUser.rows[0]
+    // 新用户注册送 5 张图片
+    await query(
+      `INSERT INTO tokens_balance (user_id, balance) VALUES ($1,$2)
+       ON CONFLICT (user_id) DO UPDATE SET balance = tokens_balance.balance + EXCLUDED.balance, updated_at = NOW()`,
+      [user.id, 5]
+    )
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.created_at,
+      totalProcessed: 0,
+      tokensUsed: 0,
+      isAdmin: user.is_admin,
+    }
+  }
+
+  // fallback 内存
+  const existingUser = users.find(u => u.email === email)
+  if (existingUser) {
+    throw new Error('User already exists')
+  }
   const hashedPassword = await bcrypt.hash(password, 10)
   const newUser = {
     id: String(users.length + 1),
@@ -98,14 +127,34 @@ export const registerUser = async (name, email, password) => {
     resetPasswordToken: null,
     resetPasswordExpires: null,
   }
-
   users.push(newUser)
-  tokens.set(newUser.id, 5) // 新用户注册送5个token
-
+  tokens.set(newUser.id, 5)
   return newUser
 }
 
 export const loginUser = async (email, password) => {
+  if (useDb) {
+    const result = await query('SELECT id, name, email, password_hash, is_admin, created_at FROM users WHERE email=$1', [email])
+    if (result.rows.length === 0) {
+      throw new Error('Email or password is incorrect')
+    }
+    const user = result.rows[0]
+    const isValid = await bcrypt.compare(password, user.password_hash)
+    if (!isValid) {
+      throw new Error('Email or password is incorrect')
+    }
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password: user.password_hash,
+      createdAt: user.created_at,
+      totalProcessed: 0,
+      tokensUsed: 0,
+      isAdmin: user.is_admin,
+    }
+  }
+
   const user = users.find(u => u.email === email)
   if (!user) {
     throw new Error('Email or password is incorrect')
@@ -120,11 +169,34 @@ export const loginUser = async (email, password) => {
 }
 
 export const getUserById = (userId) => {
+  if (useDb) {
+    // 注意：此函数在 index.js 中同步使用，将其改为 async 会影响调用方；这里返回一个同步标记
+    throw new Error('getUserById is synchronous; use getUserByIdAsync instead when DB is enabled')
+  }
   return users.find(u => u.id === userId)
 }
 
 export const getUserByEmail = (email) => {
+  if (useDb) {
+    throw new Error('getUserByEmail is synchronous; use getUserByEmailAsync instead when DB is enabled')
+  }
   return users.find(u => u.email === email)
+}
+
+export const getUserByIdAsync = async (userId) => {
+  if (!useDb) {
+    return getUserById(userId)
+  }
+  const result = await query('SELECT id, name, email, is_admin, created_at FROM users WHERE id=$1', [userId])
+  return result.rows[0] || null
+}
+
+export const getUserByEmailAsync = async (email) => {
+  if (!useDb) {
+    return getUserByEmail(email)
+  }
+  const result = await query('SELECT id, name, email, is_admin, created_at FROM users WHERE email=$1', [email])
+  return result.rows[0] || null
 }
 
 export const getUserTokens = (userId) => {
@@ -228,6 +300,45 @@ export const recordTokenUsage = (userId, action = 'generate') => {
   return current
 }
 
+// ============ Postgres 版本（异步） ============
+export const getUserTokensAsync = async (userId) => {
+  if (!useDb) return getUserTokens(userId)
+  const result = await query('SELECT balance FROM tokens_balance WHERE user_id=$1', [userId])
+  return result.rows.length ? Number(result.rows[0].balance) : 0
+}
+
+export const setUserTokensAsync = async (userId, amount) => {
+  if (!useDb) return setUserTokens(userId, amount)
+  await query(
+    `INSERT INTO tokens_balance (user_id, balance) VALUES ($1,$2)
+     ON CONFLICT (user_id) DO UPDATE SET balance = EXCLUDED.balance, updated_at = NOW()`,
+    [userId, amount]
+  )
+  return amount
+}
+
+export const decrementUserTokensAsync = async (userId, action = 'download') => {
+  if (!useDb) return decrementUserTokens(userId, action)
+  const current = await getUserTokensAsync(userId)
+  const newCount = Math.max(0, current - 1)
+  await query('UPDATE tokens_balance SET balance=$1, updated_at=NOW() WHERE user_id=$2', [newCount, userId])
+  await query('INSERT INTO token_usage (user_id, action) VALUES ($1,$2)', [userId, action])
+  return newCount
+}
+
+export const addTokensToUserAsync = async (userId, amount) => {
+  if (!useDb) return addTokensToUser(userId, amount)
+  const current = await getUserTokensAsync(userId)
+  const next = current + amount
+  await setUserTokensAsync(userId, next)
+  return next
+}
+
+export const recordTokenUsageAsync = async (userId, action = 'generate', imageId = null) => {
+  if (!useDb) return recordTokenUsage(userId, action)
+  await query('INSERT INTO token_usage (user_id, action, image_id) VALUES ($1,$2,$3)', [userId, action, imageId])
+}
+
 export const generateToken = (userId) => {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '30d' })
 }
@@ -241,6 +352,30 @@ export const getAllUsers = () => {
       tokens: tokens.get(user.id) || 0,
     }
   })
+}
+
+export const getAllUsersAsync = async () => {
+  if (!useDb) return getAllUsers()
+  const result = await query(
+    `SELECT u.id, u.name, u.email, u.is_admin, u.created_at,
+            COALESCE(tb.balance,0) AS balance,
+            COALESCE((
+              SELECT COUNT(*) FROM token_usage tu WHERE tu.user_id = u.id AND tu.action = 'generate'
+            ),0) AS total_processed
+     FROM users u
+     LEFT JOIN tokens_balance tb ON tb.user_id = u.id
+     ORDER BY u.created_at DESC`
+  )
+  return result.rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    isAdmin: r.is_admin,
+    createdAt: r.created_at,
+    totalProcessed: Number(r.total_processed || 0),
+    tokensUsed: Number(r.total_processed || 0),
+    tokens: Number(r.balance || 0),
+  }))
 }
 
 export const getActiveSessionsCount = () => {
@@ -275,6 +410,31 @@ export const getTokenUsageStats = (startDate, endDate) => {
   }
 }
 
+export const getTokenUsageStatsAsync = async (startDate, endDate) => {
+  if (!useDb) return getTokenUsageStats(startDate, endDate)
+  const result = await query(
+    `SELECT action, COUNT(*) as count
+     FROM token_usage
+     WHERE created_at BETWEEN $1 AND $2
+     GROUP BY action`,
+    [startDate, endDate]
+  )
+  const totalUsage = result.rows.reduce((sum, r) => sum + Number(r.count), 0)
+  const totalDownload = result.rows
+    .filter(r => r.action === 'download')
+    .reduce((sum, r) => sum + Number(r.count), 0)
+  const uniqueUsersRes = await query(
+    `SELECT COUNT(DISTINCT user_id) as c FROM token_usage WHERE created_at BETWEEN $1 AND $2`,
+    [startDate, endDate]
+  )
+  return {
+    totalUsage,
+    totalDownload,
+    uniqueUsers: Number(uniqueUsersRes.rows[0]?.c || 0),
+    records: [], // 简化
+  }
+}
+
 export const getRevenueStats = (startDate, endDate) => {
   const filtered = revenueHistory.filter(record => {
     const recordDate = new Date(record.timestamp)
@@ -290,6 +450,19 @@ export const getRevenueStats = (startDate, endDate) => {
   }
 }
 
+export const getRevenueStatsAsync = async (startDate, endDate) => {
+  if (!useDb) return getRevenueStats(startDate, endDate)
+  const result = await query(
+    `SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM revenue WHERE created_at BETWEEN $1 AND $2`,
+    [startDate, endDate]
+  )
+  return {
+    totalRevenue: Number(result.rows[0]?.total || 0),
+    transactionCount: Number(result.rows[0]?.cnt || 0),
+    records: [],
+  }
+}
+
 export const getSubscriptionStats = () => {
   const active = subscriptions.filter(s => s.status === 'active').length
   const total = subscriptions.length
@@ -298,6 +471,20 @@ export const getSubscriptionStats = () => {
     active,
     total,
     subscriptions,
+  }
+}
+
+export const getSubscriptionStatsAsync = async () => {
+  if (!useDb) return getSubscriptionStats()
+  const result = await query(
+    `SELECT 
+        COUNT(*) AS total,
+        SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) AS active
+     FROM subscriptions`
+  )
+  return {
+    active: Number(result.rows[0]?.active || 0),
+    total: Number(result.rows[0]?.total || 0),
   }
 }
 
@@ -331,6 +518,19 @@ export const addTokensToUser = (userId, amount) => {
   const newCount = current + amount
   tokens.set(userId, newCount)
   return newCount
+}
+
+export const deleteUserAsync = async (userId) => {
+  if (!useDb) return deleteUser(userId)
+  await query('DELETE FROM users WHERE id=$1', [userId])
+  return true
+}
+
+export const toggleUserAdminAsync = async (userId) => {
+  if (!useDb) return toggleUserAdmin(userId)
+  const result = await query('UPDATE users SET is_admin = NOT is_admin WHERE id=$1 RETURNING id, name, email, is_admin, created_at', [userId])
+  if (result.rows.length === 0) throw new Error('User not found')
+  return result.rows[0]
 }
 
 // 获取图表数据（按日期分组）
@@ -431,6 +631,50 @@ export const getChartData = (startDate, endDate) => {
   const chartData = Array.from(dataMap.values()).sort((a, b) => a.date.localeCompare(b.date))
   
   return chartData
+}
+
+export const getChartDataAsync = async (startDate, endDate) => {
+  if (!useDb) return getChartData(startDate, endDate)
+  // 使用 generate_series 生成日期
+  const result = await query(
+    `WITH dates AS (
+       SELECT generate_series($1::date, $2::date, '1 day') AS day
+     ),
+     users_c AS (
+       SELECT day, COUNT(u.id) AS total_users
+       FROM dates d
+       LEFT JOIN users u ON u.created_at::date <= d.day
+       GROUP BY day
+     ),
+     revenue_c AS (
+       SELECT day, COALESCE(SUM(r.amount),0) AS total_revenue
+       FROM dates d
+       LEFT JOIN revenue r ON r.created_at::date <= d.day
+       GROUP BY day
+     ),
+     subs_c AS (
+       SELECT day, COUNT(s.id) FILTER (WHERE s.status='active') AS total_subs
+       FROM dates d
+       LEFT JOIN subscriptions s ON (s.created_at::date <= d.day)
+       GROUP BY day
+     )
+     SELECT d.day AS date,
+            u.total_users,
+            r.total_revenue,
+            s.total_subs
+     FROM dates d
+     LEFT JOIN users_c u ON u.day = d.day
+     LEFT JOIN revenue_c r ON r.day = d.day
+     LEFT JOIN subs_c s ON s.day = d.day
+     ORDER BY d.day`,
+    [startDate, endDate]
+  )
+  return result.rows.map(r => ({
+    date: r.date.toISOString().split('T')[0],
+    totalUsers: Number(r.total_users || 0),
+    totalRevenue: Number(r.total_revenue || 0),
+    totalSubscriptions: Number(r.total_subs || 0),
+  }))
 }
 
 // 导出users数组供其他模块使用
