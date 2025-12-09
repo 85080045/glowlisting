@@ -481,10 +481,33 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         html: htmlContent,
       }
 
-      await sgMail.send(msg)
-      console.log(`✅ 密码重置邮件已发送到 ${email}`)
+      try {
+        await sgMail.send(msg)
+        console.log(`✅ 密码重置邮件已通过 SendGrid 成功发送到 ${email}`)
+      } catch (sendError) {
+        console.error('❌ SendGrid 发送邮件失败:', sendError)
+        console.error('错误代码:', sendError.code)
+        console.error('错误消息:', sendError.message)
+        console.error('错误响应:', sendError.response?.body)
+        
+        // 提供更详细的错误信息
+        let errorMessage = 'Failed to send password reset email'
+        if (sendError.code === 'EENVELOPE') {
+          errorMessage = mailLanguage === 'zh' 
+            ? '发件人邮箱未验证，请联系管理员' 
+            : 'Sender email not verified. Please contact administrator'
+        } else if (sendError.response?.body?.errors) {
+          errorMessage = sendError.response.body.errors[0]?.message || errorMessage
+        }
+        
+        return res.status(500).json({ 
+          error: errorMessage,
+          details: process.env.NODE_ENV === 'development' ? sendError.message : undefined
+        })
+      }
     } else {
       // 如果没有配置邮件服务，返回错误
+      console.error('❌ SendGrid API key 未配置')
       return res.status(500).json({ 
         error: mailLanguage === 'zh' 
           ? '邮件服务未配置，请联系管理员' 
@@ -494,8 +517,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     res.json({ success: true, message: 'Password reset email sent' })
   } catch (error) {
-    console.error('发送密码重置邮件失败:', error)
-    res.status(500).json({ error: 'Failed to send password reset email' })
+    console.error('❌ 发送密码重置邮件失败:', error)
+    console.error('错误详情:', error.message)
+    res.status(500).json({ 
+      error: mailLanguage === 'zh' 
+        ? '发送密码重置邮件失败，请稍后重试' 
+        : 'Failed to send password reset email. Please try again later',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
   }
 })
 
