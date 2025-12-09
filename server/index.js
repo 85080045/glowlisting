@@ -1778,7 +1778,44 @@ app.get('/api/payments/config', (req, res) => {
   if (!STRIPE_PUBLISHABLE_KEY) {
     return res.status(500).json({ error: 'Stripe publishable key is not configured' })
   }
-  res.json({ publishableKey: STRIPE_PUBLISHABLE_KEY })
+  res.json({ 
+    publishableKey: STRIPE_PUBLISHABLE_KEY,
+    stripeConfigured: !!stripe,
+    hasSecretKey: !!STRIPE_SECRET_KEY
+  })
+})
+
+// 测试 Stripe 配置（仅用于调试）
+app.get('/api/payments/test-config', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) {
+      return res.status(500).json({ 
+        error: 'Stripe not initialized',
+        details: {
+          hasSecretKey: !!STRIPE_SECRET_KEY,
+          secretKeyPrefix: STRIPE_SECRET_KEY ? STRIPE_SECRET_KEY.substring(0, 7) + '...' : 'missing'
+        }
+      })
+    }
+    
+    // 测试 Stripe API 连接
+    const account = await stripe.account.retrieve()
+    
+    res.json({
+      success: true,
+      stripeConfigured: true,
+      accountId: account.id,
+      country: account.country,
+      defaultCurrency: account.default_currency
+    })
+  } catch (error) {
+    console.error('Stripe test error:', error)
+    res.status(500).json({
+      error: 'Stripe configuration test failed',
+      message: error.message,
+      type: error.type
+    })
+  }
 })
 
 // 创建 Checkout Session

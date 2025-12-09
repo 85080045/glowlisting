@@ -46,35 +46,75 @@ tokens.set('999', 9999) // 超级管理员有9999个token
 export const authMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization
-    console.log('Auth middleware - Authorization header:', authHeader ? 'Present' : 'Missing')
+    const requestPath = req.path
+    const requestMethod = req.method
+    
+    console.log(`[Auth] ${requestMethod} ${requestPath} - Authorization header:`, authHeader ? 'Present' : 'Missing')
     
     if (!authHeader) {
-      console.error('Auth middleware - No authorization header')
-      return res.status(401).json({ error: 'No token provided', message: 'Please login to continue' })
+      console.error(`[Auth] ${requestMethod} ${requestPath} - No authorization header`)
+      return res.status(401).json({ 
+        error: 'No token provided', 
+        message: 'Please login to continue',
+        path: requestPath
+      })
     }
 
-    const token = authHeader.split(' ')[1]
+    const parts = authHeader.split(' ')
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      console.error(`[Auth] ${requestMethod} ${requestPath} - Invalid authorization format`)
+      return res.status(401).json({ 
+        error: 'Invalid authorization format', 
+        message: 'Authorization header must be in format: Bearer <token>',
+        path: requestPath
+      })
+    }
+
+    const token = parts[1]
     
     if (!token) {
-      console.error('Auth middleware - No token in header')
-      return res.status(401).json({ error: 'No token provided', message: 'Please login to continue' })
+      console.error(`[Auth] ${requestMethod} ${requestPath} - No token in header`)
+      return res.status(401).json({ 
+        error: 'No token provided', 
+        message: 'Please login to continue',
+        path: requestPath
+      })
     }
 
-    console.log('Auth middleware - Verifying token, JWT_SECRET exists:', !!JWT_SECRET)
+    console.log(`[Auth] ${requestMethod} ${requestPath} - Verifying token`)
+    console.log(`[Auth] JWT_SECRET exists: ${!!JWT_SECRET}, length: ${JWT_SECRET?.length || 0}`)
+    console.log(`[Auth] Token preview: ${token.substring(0, 20)}...`)
+    
     const decoded = jwt.verify(token, JWT_SECRET)
-    console.log('Auth middleware - Token verified, userId:', decoded.userId)
+    console.log(`[Auth] ${requestMethod} ${requestPath} - Token verified successfully, userId: ${decoded.userId}`)
     req.userId = decoded.userId
     next()
   } catch (error) {
-    console.error('Auth middleware - Token verification failed:', error.message)
-    console.error('Auth middleware - Error type:', error.name)
+    console.error(`[Auth] Token verification failed for ${req.method} ${req.path}:`, error.message)
+    console.error(`[Auth] Error type: ${error.name}`)
+    console.error(`[Auth] Error stack:`, error.stack)
+    
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token expired', message: 'Your session has expired. Please login again.' })
+      return res.status(401).json({ 
+        error: 'Token expired', 
+        message: 'Your session has expired. Please login again.',
+        errorType: 'TokenExpiredError'
+      })
     }
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token', message: 'Invalid authentication token. Please login again.' })
+      return res.status(401).json({ 
+        error: 'Invalid token', 
+        message: 'Invalid authentication token. Please login again.',
+        errorType: 'JsonWebTokenError',
+        details: error.message
+      })
     }
-    return res.status(401).json({ error: 'Authentication failed', message: 'Please login to continue' })
+    return res.status(401).json({ 
+      error: 'Authentication failed', 
+      message: 'Please login to continue',
+      errorType: error.name,
+      details: error.message
+    })
   }
 }
 
