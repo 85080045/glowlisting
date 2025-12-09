@@ -65,8 +65,21 @@ export default function Pricing() {
           console.error('Error details:', {
             message: err.message,
             response: err.response?.data,
-            status: err.response?.status
+            status: err.response?.status,
+            statusText: err.response?.statusText
           })
+          
+          // 如果是 401 错误，提示用户重新登录
+          if (err.response?.status === 401) {
+            const authError = err.response?.data?.message || err.response?.data?.error || 'Your session has expired. Please login again.'
+            alert(authError)
+            // 清除无效的 token
+            localStorage.removeItem('glowlisting_token')
+            // 可选：重定向到登录页面
+            // navigate('/login')
+            return
+          }
+          
           let errorMsg = err.message
           if (err.response?.data?.message) {
             errorMsg = err.response.data.message
@@ -116,8 +129,21 @@ export default function Pricing() {
           console.error('Error details:', {
             message: err.message,
             response: err.response?.data,
-            status: err.response?.status
+            status: err.response?.status,
+            statusText: err.response?.statusText
           })
+          
+          // 如果是 401 错误，提示用户重新登录
+          if (err.response?.status === 401) {
+            const authError = err.response?.data?.message || err.response?.data?.error || 'Your session has expired. Please login again.'
+            alert(authError)
+            // 清除无效的 token
+            localStorage.removeItem('glowlisting_token')
+            // 可选：重定向到登录页面
+            // navigate('/login')
+            return
+          }
+          
           let errorMsg = err.message
           if (err.response?.data?.message) {
             errorMsg = err.response.data.message

@@ -18,6 +18,8 @@ export const paymentsService = {
   async createCheckoutSession(planType = 'pro') {
     try {
       const token = localStorage.getItem('glowlisting_token')
+      console.log('Token from localStorage:', token ? 'Present' : 'Missing', token ? `(${token.substring(0, 20)}...)` : '')
+      
       if (!token) {
         throw new Error('Please login to continue')
       }
@@ -28,7 +30,8 @@ export const paymentsService = {
         planType,
         successUrl,
         cancelUrl,
-        apiUrl: API_URL
+        apiUrl: API_URL,
+        hasToken: !!token
       })
       
       const res = await api.post(

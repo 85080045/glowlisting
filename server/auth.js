@@ -45,17 +45,36 @@ tokens.set('999', 9999) // 超级管理员有9999个token
 
 export const authMiddleware = (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1]
+    const authHeader = req.headers.authorization
+    console.log('Auth middleware - Authorization header:', authHeader ? 'Present' : 'Missing')
     
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' })
+    if (!authHeader) {
+      console.error('Auth middleware - No authorization header')
+      return res.status(401).json({ error: 'No token provided', message: 'Please login to continue' })
     }
 
+    const token = authHeader.split(' ')[1]
+    
+    if (!token) {
+      console.error('Auth middleware - No token in header')
+      return res.status(401).json({ error: 'No token provided', message: 'Please login to continue' })
+    }
+
+    console.log('Auth middleware - Verifying token, JWT_SECRET exists:', !!JWT_SECRET)
     const decoded = jwt.verify(token, JWT_SECRET)
+    console.log('Auth middleware - Token verified, userId:', decoded.userId)
     req.userId = decoded.userId
     next()
   } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' })
+    console.error('Auth middleware - Token verification failed:', error.message)
+    console.error('Auth middleware - Error type:', error.name)
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired', message: 'Your session has expired. Please login again.' })
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token', message: 'Invalid authentication token. Please login again.' })
+    }
+    return res.status(401).json({ error: 'Authentication failed', message: 'Please login to continue' })
   }
 }
 
