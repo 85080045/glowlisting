@@ -278,6 +278,43 @@ export default function Login() {
     setError(t('auth.facebookLoginComingSoon'))
   }
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    if (!formData.email) {
+      setError(t('auth.pleaseEnterEmail'))
+      setLoading(false)
+      return
+    }
+
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError(t('auth.invalidEmail'))
+      setLoading(false)
+      return
+    }
+
+    try {
+      const response = await axios.post(`${API_URL}/auth/forgot-password`, {
+        email: formData.email,
+        language: language,
+      })
+
+      if (response.data.success) {
+        setForgotPasswordSent(true)
+      } else {
+        setError(response.data.error || t('auth.forgotPasswordFailed'))
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || t('auth.forgotPasswordFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
