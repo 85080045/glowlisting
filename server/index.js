@@ -1784,6 +1784,7 @@ app.get('/api/payments/config', (req, res) => {
 app.post('/api/payments/create-checkout-session', authMiddleware, async (req, res) => {
   try {
     if (!stripe) {
+      console.error('Stripe secret key not configured')
       return res.status(500).json({ error: 'Stripe secret key is not configured' })
     }
 
@@ -1792,6 +1793,8 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
     const userId = req.userId
     const currentUser = await getUserByIdSafe(userId)
     const customerEmail = currentUser?.email
+
+    console.log('Creating checkout session:', { planType, userId, customerEmail, origin })
 
     let sessionPayload = {
       client_reference_id: userId,
@@ -1849,7 +1852,7 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
 
     res.json({ id: session.id, url: session.url })
   } catch (error) {
-    console.error('Create checkout session error:', error)
+    console.error('Create checkout session error:', error?.response?.data || error.message)
     res.status(500).json({ error: 'Failed to create checkout session', message: error.message })
   }
 })

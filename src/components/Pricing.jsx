@@ -55,11 +55,11 @@ export default function Pricing() {
           if (session?.url) {
             window.location.href = session.url
           } else {
-            alert(t('pricing.checkoutError') || 'Checkout failed, please try again.')
+            alert(session?.error || t('pricing.checkoutError') || 'Checkout failed, please try again.')
           }
         } catch (err) {
           console.error('Pro checkout error:', err)
-          alert(err.response?.data?.error || t('pricing.checkoutError') || 'Checkout failed, please try again.')
+          alert(err.response?.data?.error || err.response?.data?.message || t('pricing.checkoutError') || 'Checkout failed, please try again.')
         } finally {
           setLoadingPlan(null)
         }
@@ -89,11 +89,11 @@ export default function Pricing() {
           if (session?.url) {
             window.location.href = session.url
           } else {
-            alert(t('pricing.checkoutError') || 'Checkout failed, please try again.')
+            alert(session?.error || t('pricing.checkoutError') || 'Checkout failed, please try again.')
           }
         } catch (err) {
           console.error('Pack checkout error:', err)
-          alert(err.response?.data?.error || t('pricing.checkoutError') || 'Checkout failed, please try again.')
+          alert(err.response?.data?.error || err.response?.data?.message || t('pricing.checkoutError') || 'Checkout failed, please try again.')
         } finally {
           setLoadingPlan(null)
         }
