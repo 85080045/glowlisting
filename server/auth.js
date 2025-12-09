@@ -12,7 +12,6 @@ const tokenUsageHistory = [] // Token使用历史记录 { userId, timestamp, act
 const revenueHistory = [] // 收入记录 { userId, amount, timestamp, type }
 const subscriptions = [] // 订阅记录 { userId, plan, startDate, endDate, status }
 const passwordResetTokens = new Map() // email -> { token, expiresAt }
-const passwordResetTokens = new Map() // email -> { token, expiresAt }
 
 // 初始化默认用户（用于测试）
 users.push({
