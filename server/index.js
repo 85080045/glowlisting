@@ -1031,6 +1031,67 @@ app.post('/api/admin/users/:userId/tokens', authMiddleware, adminMiddleware, asy
   }
 })
 
+// 获取收入记录（订单）
+app.get('/api/admin/orders', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.json({ success: true, orders: [] })
+    const { startDate, endDate, limit = 100, offset = 0 } = req.query
+    const params = []
+    let where = ''
+    if (startDate && endDate) {
+      where = 'WHERE r.created_at BETWEEN $1 AND $2'
+      params.push(new Date(startDate), new Date(endDate))
+    }
+    const sql = `
+      SELECT r.id, r.amount, r.currency, r.source, r.created_at,
+             u.email, u.name
+      FROM revenue r
+      LEFT JOIN users u ON u.id = r.user_id
+      ${where}
+      ORDER BY r.created_at DESC
+      LIMIT ${Number(limit) || 100} OFFSET ${Number(offset) || 0}
+    `
+    const result = await query(sql, params)
+    res.json({ success: true, orders: result.rows })
+  } catch (error) {
+    console.error('Admin orders error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 获取 token 使用记录
+app.get('/api/admin/usage', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.json({ success: true, usage: [] })
+    const { startDate, endDate, limit = 100, offset = 0, action } = req.query
+    const params = []
+    const clauses = []
+    if (startDate && endDate) {
+      clauses.push(`tu.created_at BETWEEN $${params.length + 1} AND $${params.length + 2}`)
+      params.push(new Date(startDate), new Date(endDate))
+    }
+    if (action) {
+      clauses.push(`tu.action = $${params.length + 1}`)
+      params.push(action)
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    const sql = `
+      SELECT tu.id, tu.action, tu.image_id, tu.created_at,
+             u.email, u.name
+      FROM token_usage tu
+      LEFT JOIN users u ON u.id = tu.user_id
+      ${where}
+      ORDER BY tu.created_at DESC
+      LIMIT ${Number(limit) || 100} OFFSET ${Number(offset) || 0}
+    `
+    const result = await query(sql, params)
+    res.json({ success: true, usage: result.rows })
+  } catch (error) {
+    console.error('Admin usage error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // ==================== 图片增强 API ====================
 
 /**

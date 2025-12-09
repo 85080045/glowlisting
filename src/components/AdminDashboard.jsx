@@ -44,6 +44,9 @@ export default function AdminDashboard() {
   const [startDate, setStartDate] = useState(null)
   const [endDate, setEndDate] = useState(null)
   const [chartData, setChartData] = useState(null)
+  const [orders, setOrders] = useState([])
+  const [usage, setUsage] = useState([])
+  const [usageAction, setUsageAction] = useState('') // generate/download/all
 
   useEffect(() => {
     console.log('AdminDashboard useEffect - user:', user)
@@ -99,6 +102,16 @@ export default function AdminDashboard() {
       setStats(statsRes.data.stats)
       setUsers(usersRes.data.users)
       setChartData(statsRes.data.chartData || null)
+      // 同步加载订单与使用记录（短列表）
+      const listParams = customStartDate && customEndDate
+        ? { startDate: customStartDate.toISOString(), endDate: customEndDate.toISOString(), limit: 50 }
+        : { range: timeRange, limit: 50 }
+      const [ordersRes, usageRes] = await Promise.all([
+        axios.get(`${API_URL}/admin/orders`, { headers: { Authorization: `Bearer ${token}` }, params: listParams }),
+        axios.get(`${API_URL}/admin/usage`, { headers: { Authorization: `Bearer ${token}` }, params: { ...listParams, action: usageAction || undefined } })
+      ])
+      setOrders(ordersRes.data.orders || [])
+      setUsage(usageRes.data.usage || [])
     } catch (error) {
       console.error('Failed to fetch admin data:', error)
       console.error('Error response:', error.response?.data)
@@ -299,6 +312,26 @@ export default function AdminDashboard() {
           >
             {t('adminDashboard.analytics')}
           </button>
+        <button
+          onClick={() => setActiveTab('orders')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'orders'
+              ? 'bg-blue-600 text-white'
+              : 'glass-dark text-gray-300 hover:bg-gray-800'
+          }`}
+        >
+          {t('adminDashboard.orders')}
+        </button>
+        <button
+          onClick={() => setActiveTab('usage')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'usage'
+              ? 'bg-blue-600 text-white'
+              : 'glass-dark text-gray-300 hover:bg-gray-800'
+          }`}
+        >
+          {t('adminDashboard.usage')}
+        </button>
         </div>
 
         {/* 时间范围选择器 */}
@@ -735,6 +768,117 @@ export default function AdminDashboard() {
                     </div>
                   )
                 })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 订单列表 */}
+        {activeTab === 'orders' && (
+          <div className="glass-dark rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">{t('adminDashboard.recentOrders')}</h2>
+              <span className="text-sm text-gray-400">{t('adminDashboard.lastNRecords', { count: 50 })}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-800/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.user')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.amount')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.plan')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.time')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {orders.map((o) => (
+                    <tr key={o.id} className="hover:bg-gray-800/30 transition-colors">
+                      <td className="px-4 py-3 text-sm text-white">
+                        <div className="flex flex-col">
+                          <span>{o.name || o.email || '-'}</span>
+                          <span className="text-xs text-gray-400">{o.email || '-'}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-white">
+                        ${Number(o.amount || 0).toFixed(2)} {o.currency || 'usd'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-300">{o.source || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-300">
+                        {o.created_at ? new Date(o.created_at).toLocaleString() : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                  {orders.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-6 text-center text-gray-400 text-sm" colSpan={4}>
+                        {t('adminDashboard.noData')}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 使用记录 */}
+        {activeTab === 'usage' && (
+          <div className="space-y-4">
+            <div className="glass-dark rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white">{t('adminDashboard.recentUsage')}</h2>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={usageAction}
+                    onChange={(e) => {
+                      setUsageAction(e.target.value)
+                      fetchData(startDate, endDate)
+                    }}
+                    className="bg-gray-900/50 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('adminDashboard.allActions')}</option>
+                    <option value="generate">{t('adminDashboard.generate')}</option>
+                    <option value="process">{t('adminDashboard.process')}</option>
+                    <option value="download">{t('adminDashboard.download')}</option>
+                  </select>
+                  <span className="text-sm text-gray-400">{t('adminDashboard.lastNRecords', { count: 50 })}</span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-800/50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.user')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.action')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.imageId')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.time')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {usage.map((u) => (
+                      <tr key={u.id} className="hover:bg-gray-800/30 transition-colors">
+                        <td className="px-4 py-3 text-sm text-white">
+                          <div className="flex flex-col">
+                            <span>{u.name || u.email || '-'}</span>
+                            <span className="text-xs text-gray-400">{u.email || '-'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{u.action}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{u.image_id || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">
+                          {u.created_at ? new Date(u.created_at).toLocaleString() : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                    {usage.length === 0 && (
+                      <tr>
+                        <td className="px-4 py-6 text-center text-gray-400 text-sm" colSpan={4}>
+                          {t('adminDashboard.noData')}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
