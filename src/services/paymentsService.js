@@ -18,21 +18,36 @@ export const paymentsService = {
   async createCheckoutSession(planType = 'pro') {
     try {
       const token = localStorage.getItem('glowlisting_token')
-      console.log('Token from localStorage:', token ? 'Present' : 'Missing', token ? `(${token.substring(0, 20)}...)` : '')
+      console.log('=== Payment Checkout Debug ===')
+      console.log('Token from localStorage:', token ? 'Present' : 'Missing')
+      if (token) {
+        console.log('Token preview:', token.substring(0, 30) + '...')
+        console.log('Token length:', token.length)
+      }
       
       if (!token) {
+        console.error('No token found in localStorage')
         throw new Error('Please login to continue')
       }
+      
       const successUrl = `${window.location.origin}/payment-success`
       const cancelUrl = `${window.location.origin}/payment-cancel`
       
-      console.log('Sending checkout request:', {
+      console.log('Request details:', {
         planType,
         successUrl,
         cancelUrl,
         apiUrl: API_URL,
-        hasToken: !!token
+        endpoint: `${API_URL}/payments/create-checkout-session`,
+        hasToken: !!token,
+        tokenPrefix: token.substring(0, 20)
       })
+      
+      const requestHeaders = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      }
+      console.log('Request headers:', { ...requestHeaders, Authorization: 'Bearer ***' })
       
       const res = await api.post(
         '/payments/create-checkout-session',
@@ -42,9 +57,7 @@ export const paymentsService = {
           cancelUrl,
         },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: requestHeaders,
         }
       )
       
@@ -61,9 +74,23 @@ export const paymentsService = {
       
       return res.data
     } catch (error) {
-      console.error('Create checkout session error:', error)
-      console.error('Error response:', error.response?.data)
+      console.error('=== Payment Checkout Error ===')
+      console.error('Error type:', error.name)
+      console.error('Error message:', error.message)
       console.error('Error status:', error.response?.status)
+      console.error('Error status text:', error.response?.statusText)
+      console.error('Error response data:', error.response?.data)
+      console.error('Request URL:', error.config?.url)
+      console.error('Request headers sent:', error.config?.headers)
+      
+      // 如果是 401，提供更详细的错误信息
+      if (error.response?.status === 401) {
+        console.error('401 Unauthorized - Possible causes:')
+        console.error('1. Token expired or invalid')
+        console.error('2. JWT_SECRET mismatch between frontend and backend')
+        console.error('3. User needs to re-login after JWT_SECRET change')
+        console.error('Current token:', localStorage.getItem('glowlisting_token')?.substring(0, 30) + '...')
+      }
       
       // Preserve the original error structure
       if (error.response?.data) {

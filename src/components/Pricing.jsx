@@ -72,11 +72,13 @@ export default function Pricing() {
           // 如果是 401 错误，提示用户重新登录
           if (err.response?.status === 401) {
             const authError = err.response?.data?.message || err.response?.data?.error || 'Your session has expired. Please login again.'
-            alert(authError)
+            alert(authError + '\n\nPlease logout and login again to continue.')
             // 清除无效的 token
             localStorage.removeItem('glowlisting_token')
-            // 可选：重定向到登录页面
-            // navigate('/login')
+            // 重定向到登录页面
+            setTimeout(() => {
+              navigate('/login')
+            }, 1000)
             return
           }
           
@@ -136,11 +138,13 @@ export default function Pricing() {
           // 如果是 401 错误，提示用户重新登录
           if (err.response?.status === 401) {
             const authError = err.response?.data?.message || err.response?.data?.error || 'Your session has expired. Please login again.'
-            alert(authError)
+            alert(authError + '\n\nPlease logout and login again to continue.')
             // 清除无效的 token
             localStorage.removeItem('glowlisting_token')
-            // 可选：重定向到登录页面
-            // navigate('/login')
+            // 重定向到登录页面
+            setTimeout(() => {
+              navigate('/login')
+            }, 1000)
             return
           }
           
