@@ -52,6 +52,11 @@ export default function AdminDashboard() {
   const [usageAction, setUsageAction] = useState('') // generate/download/all
   const [resetPasswordUser, setResetPasswordUser] = useState(null)
   const [resetPasswordValue, setResetPasswordValue] = useState('')
+  const [userSearch, setUserSearch] = useState('')
+  const [userRoleFilter, setUserRoleFilter] = useState('all')
+  const [userHasTokens, setUserHasTokens] = useState('all')
+  const [userDateStart, setUserDateStart] = useState(null)
+  const [userDateEnd, setUserDateEnd] = useState(null)
 
   useEffect(() => {
     console.log('AdminDashboard useEffect - user:', user)
@@ -604,8 +609,132 @@ export default function AdminDashboard() {
 
         {/* 用户列表标签页 */}
         {activeTab === 'users' && (
-          <div className="glass-dark rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="space-y-4">
+            {/* 过滤与导出 */}
+            <div className="glass-dark rounded-xl p-4 flex flex-wrap gap-3 items-end">
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-300 mb-1">{t('adminDashboard.search')}</label>
+                <input
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder={t('adminDashboard.searchPlaceholder')}
+                  className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-300 mb-1">{t('adminDashboard.role')}</label>
+                <select
+                  value={userRoleFilter}
+                  onChange={(e) => setUserRoleFilter(e.target.value)}
+                  className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">{t('adminDashboard.all')}</option>
+                  <option value="admin">{t('adminDashboard.admin')}</option>
+                  <option value="user">{t('adminDashboard.user')}</option>
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-300 mb-1">{t('adminDashboard.hasTokens')}</label>
+                <select
+                  value={userHasTokens}
+                  onChange={(e) => setUserHasTokens(e.target.value)}
+                  className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">{t('adminDashboard.all')}</option>
+                  <option value="yes">{t('adminDashboard.hasTokensYes')}</option>
+                  <option value="no">{t('adminDashboard.hasTokensNo')}</option>
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-300 mb-1">{t('adminDashboard.startDate')}</label>
+                <DatePicker
+                  selected={userDateStart}
+                  onChange={(date) => setUserDateStart(date)}
+                  selectsStart
+                  startDate={userDateStart}
+                  endDate={userDateEnd}
+                  maxDate={new Date()}
+                  className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                  dateFormat="yyyy-MM-dd"
+                  placeholderText={t('adminDashboard.selectStartDate')}
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-300 mb-1">{t('adminDashboard.endDate')}</label>
+                <DatePicker
+                  selected={userDateEnd}
+                  onChange={(date) => setUserDateEnd(date)}
+                  selectsEnd
+                  startDate={userDateStart}
+                  endDate={userDateEnd}
+                  minDate={userDateStart}
+                  maxDate={new Date()}
+                  className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                  dateFormat="yyyy-MM-dd"
+                  placeholderText={t('adminDashboard.selectEndDate')}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    fetchData()
+                  }}
+                  className="btn-primary h-fit"
+                >
+                  {t('adminDashboard.apply')}
+                </button>
+                <button
+                  onClick={async () => {
+                    const token = localStorage.getItem('glowlisting_token')
+                    const params = {}
+                    if (userSearch) params.search = userSearch
+                    if (userRoleFilter !== 'all') params.role = userRoleFilter
+                    if (userHasTokens !== 'all') params.hasTokens = userHasTokens
+                    if (userDateStart && userDateEnd) {
+                      params.startDate = userDateStart.toISOString()
+                      params.endDate = userDateEnd.toISOString()
+                    }
+                    const res = await axios.get(`${API_URL}/admin/export/users`, {
+                      headers: { Authorization: `Bearer ${token}` },
+                      params,
+                    })
+                    const data = res.data.users || []
+                    const csv = ['name,email,isAdmin,balance,createdAt,lastLoginAt,lastLoginCountry,lastLoginCity,lastLoginIp']
+                      .concat(
+                        data.map(u =>
+                          [
+                            u.name,
+                            u.email,
+                            u.is_admin ?? u.isAdmin,
+                            u.balance ?? u.tokens ?? 0,
+                            u.created_at ?? u.createdAt,
+                            u.last_login_at ?? u.lastLoginAt,
+                            u.last_login_country ?? u.lastLoginCountry,
+                            u.last_login_city ?? u.lastLoginCity,
+                            u.last_login_ip ?? u.lastLoginIp,
+                          ].map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(',')
+                        )
+                      )
+                      .join('\\n')
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+                    const url = window.URL.createObjectURL(blob)
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.setAttribute('download', 'users.csv')
+                    document.body.appendChild(link)
+                    link.click()
+                    link.remove()
+                    window.URL.revokeObjectURL(url)
+                  }}
+                  className="btn-secondary h-fit"
+                >
+                  {t('adminDashboard.export')}
+                </button>
+              </div>
+            </div>
+
+            <div className="glass-dark rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-800/50">
                   <tr>

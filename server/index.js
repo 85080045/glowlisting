@@ -1131,6 +1131,75 @@ app.post('/api/admin/users/:userId/reset-password', authMiddleware, adminMiddlew
   }
 })
 
+// Admin 导出用户
+app.get('/api/admin/export/users', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Export requires database' })
+    const { search, role, startDate, endDate, hasTokens } = req.query
+    const clauses = []
+    const params = []
+    if (search) {
+      clauses.push(`(u.email ILIKE $${params.length + 1} OR u.name ILIKE $${params.length + 1})`)
+      params.push(`%${search}%`)
+    }
+    if (role === 'admin') clauses.push(`u.is_admin = true`)
+    if (role === 'user') clauses.push(`u.is_admin = false`)
+    if (startDate && endDate) {
+      clauses.push(`u.created_at BETWEEN $${params.length + 1} AND $${params.length + 2}`)
+      params.push(new Date(startDate), new Date(endDate))
+    }
+    if (hasTokens === 'yes') clauses.push(`COALESCE(tb.balance,0) > 0`)
+    if (hasTokens === 'no') clauses.push(`COALESCE(tb.balance,0) = 0`)
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    const sql = `
+      SELECT u.id, u.name, u.email, u.is_admin, u.created_at,
+             COALESCE(tb.balance,0) AS balance,
+             u.last_login_at, u.last_login_ip, u.last_login_country, u.last_login_country_code, u.last_login_city
+      FROM users u
+      LEFT JOIN tokens_balance tb ON tb.user_id = u.id
+      ${where}
+      ORDER BY u.created_at DESC
+      LIMIT 5000
+    `
+    const result = await query(sql, params)
+    res.json({ success: true, users: result.rows })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Admin 导出使用记录
+app.get('/api/admin/export/usage', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Export requires database' })
+    const { action, startDate, endDate, limit = 5000 } = req.query
+    const clauses = []
+    const params = []
+    if (action) {
+      clauses.push(`tu.action = $${params.length + 1}`)
+      params.push(action)
+    }
+    if (startDate && endDate) {
+      clauses.push(`tu.created_at BETWEEN $${params.length + 1} AND $${params.length + 2}`)
+      params.push(new Date(startDate), new Date(endDate))
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    const sql = `
+      SELECT tu.id, tu.action, tu.image_id, tu.created_at,
+             u.email, u.name
+      FROM token_usage tu
+      LEFT JOIN users u ON u.id = tu.user_id
+      ${where}
+      ORDER BY tu.created_at DESC
+      LIMIT ${Number(limit) || 5000}
+    `
+    const result = await query(sql, params)
+    res.json({ success: true, usage: result.rows })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // ==================== 图片增强 API ====================
 
 /**
