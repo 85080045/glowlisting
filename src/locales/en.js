@@ -126,7 +126,27 @@ export const en = {
     delete: 'Delete',
     confirmDelete: 'Are you sure you want to delete this image?',
   },
-
+  
+  // Subscription Management
+  subscription: {
+    title: 'Subscription Management',
+    backToDashboard: 'Back to Dashboard',
+    currentPlan: 'Current Plan',
+    active: 'Active',
+    inactive: 'Inactive',
+    imagesRemaining: 'Images Remaining',
+    nextBilling: 'Next Billing Date',
+    upgrade: 'Upgrade Plan',
+    changePlan: 'Change Plan',
+    cancel: 'Cancel Subscription',
+    confirmCancel: 'Are you sure you want to cancel your subscription?',
+    noSubscription: 'No active subscription',
+    getStarted: 'Get Started',
+    billingHistory: 'Billing History',
+    noBillingHistory: 'No billing history yet',
+    downloadInvoice: 'Download Invoice',
+  },
+  
   // Admin Dashboard (separate namespace to avoid conflicts)
   adminDashboard: {
     dashboard: 'Dashboard',
