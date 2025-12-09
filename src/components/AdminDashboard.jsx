@@ -18,7 +18,10 @@ import {
   Trash2,
   Shield,
   Plus,
-  X
+  X,
+  Globe,
+  MapPin,
+  KeyRound
 } from 'lucide-react'
 import axios from 'axios'
 import DatePicker from 'react-datepicker'
@@ -47,6 +50,8 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([])
   const [usage, setUsage] = useState([])
   const [usageAction, setUsageAction] = useState('') // generate/download/all
+  const [resetPasswordUser, setResetPasswordUser] = useState(null)
+  const [resetPasswordValue, setResetPasswordValue] = useState('')
 
   useEffect(() => {
     console.log('AdminDashboard useEffect - user:', user)
@@ -206,6 +211,13 @@ export default function AdminDashboard() {
 
   if (!user || !user.isAdmin) {
     return null
+  }
+
+  const codeToFlag = (code) => {
+    if (!code) return ''
+    return code.replace(/./g, (char) =>
+      String.fromCodePoint(char.charCodeAt(0) + 127397)
+    )
   }
 
   if (loading) {
@@ -599,6 +611,8 @@ export default function AdminDashboard() {
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.name')}</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.email')}</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.location')}</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.lastLogin')}</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.tokens')}</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.totalProcessed')}</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.tokensUsed')}</th>
@@ -612,6 +626,20 @@ export default function AdminDashboard() {
                     <tr key={u.id} className="hover:bg-gray-800/30 transition-colors">
                       <td className="px-6 py-4 text-sm text-white">{u.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-300">{u.email}</td>
+                      <td className="px-6 py-4 text-sm text-gray-300">
+                        {u.lastLoginCountryCode ? (
+                          <span className="inline-flex items-center space-x-2">
+                            <span className="text-lg">{codeToFlag(u.lastLoginCountryCode)}</span>
+                            <span>{u.lastLoginCountry || u.lastLoginCountryCode}</span>
+                            {u.lastLoginCity ? <span className="text-gray-500 text-xs">({u.lastLoginCity})</span> : null}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-300">
+                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '-'}
+                      </td>
                       <td className="px-6 py-4 text-sm text-white">
                         <span className="inline-flex items-center space-x-1">
                           <Coins className="h-4 w-4 text-yellow-400" />
@@ -645,6 +673,16 @@ export default function AdminDashboard() {
                             title={t('adminDashboard.addTokens')}
                           >
                             <Plus className="h-4 w-4 text-white" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setResetPasswordUser(u)
+                              setResetPasswordValue('')
+                            }}
+                            className="p-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors"
+                            title={t('adminDashboard.resetPassword')}
+                          >
+                            <KeyRound className="h-4 w-4 text-white" />
                           </button>
                           {u.id !== user.id && (
                             <>
@@ -879,6 +917,81 @@ export default function AdminDashboard() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 重置密码模态框 */}
+        {resetPasswordUser && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="glass-dark rounded-xl p-6 max-w-md w-full">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white">{t('adminDashboard.resetPassword')}</h3>
+                <button
+                  onClick={() => {
+                    setResetPasswordUser(null)
+                    setResetPasswordValue('')
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-gray-300 mb-2">{t('adminDashboard.name')}: {resetPasswordUser.name}</p>
+                  <p className="text-gray-300 mb-4">{t('adminDashboard.email')}: {resetPasswordUser.email}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    {t('adminDashboard.newPassword')}
+                  </label>
+                  <input
+                    type="password"
+                    value={resetPasswordValue}
+                    onChange={(e) => setResetPasswordValue(e.target.value)}
+                    className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder={t('adminDashboard.newPassword')}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">{t('auth.passwordRequirements')}</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={async () => {
+                      if (!resetPasswordValue) {
+                        alert(t('adminDashboard.error'))
+                        return
+                      }
+                      try {
+                        const token = localStorage.getItem('glowlisting_token')
+                        await axios.post(`${API_URL}/admin/users/${resetPasswordUser.id}/reset-password`, {
+                          newPassword: resetPasswordValue,
+                        }, {
+                          headers: { Authorization: `Bearer ${token}` }
+                        })
+                        alert(t('adminDashboard.passwordResetSuccess'))
+                        setResetPasswordUser(null)
+                        setResetPasswordValue('')
+                      } catch (error) {
+                        console.error('Reset password error:', error)
+                        alert(error.response?.data?.error || t('adminDashboard.error'))
+                      }
+                    }}
+                    className="flex-1 btn-primary"
+                  >
+                    {t('adminDashboard.resetPassword')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setResetPasswordUser(null)
+                      setResetPasswordValue('')
+                    }}
+                    className="flex-1 btn-secondary"
+                  >
+                    {t('adminDashboard.cancel')}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

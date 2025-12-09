@@ -8,6 +8,11 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   is_admin BOOLEAN DEFAULT FALSE,
+  last_login_at TIMESTAMPTZ,
+  last_login_ip TEXT,
+  last_login_country TEXT,
+  last_login_country_code TEXT,
+  last_login_city TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

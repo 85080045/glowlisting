@@ -15,6 +15,7 @@ import Stripe from 'stripe'
 import sgMail from '@sendgrid/mail'
 import bcrypt from 'bcryptjs'
 import { query } from './db/client.js'
+import geoip from 'geoip-lite'
 
 // 加载环境变量
 dotenv.config()
@@ -413,6 +414,20 @@ app.post('/api/auth/login', async (req, res) => {
     const user = await loginUser(email, password)
     const token = generateToken(user.id)
     const userTokens = await getUserTokensSafe(user.id)
+
+    // 记录登录IP与地理信息
+    if (useDb) {
+      const ipRaw = req.headers['x-forwarded-for'] || req.socket.remoteAddress || ''
+      const ip = Array.isArray(ipRaw) ? ipRaw[0] : String(ipRaw || '').split(',')[0].trim()
+      const geo = ip ? geoip.lookup(ip) : null
+      const country = geo?.country || null
+      const city = geo?.city || null
+      const countryCode = country || null
+      await query(
+        `UPDATE users SET last_login_at=NOW(), last_login_ip=$1, last_login_country=$2, last_login_country_code=$3, last_login_city=$4 WHERE id=$5`,
+        [ip || null, geo?.country || null, countryCode, city || null, user.id]
+      )
+    }
 
     // 移除密码
     const { password: _, ...userWithoutPassword } = user
@@ -1088,6 +1103,30 @@ app.get('/api/admin/usage', authMiddleware, adminMiddleware, async (req, res) =>
     res.json({ success: true, usage: result.rows })
   } catch (error) {
     console.error('Admin usage error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 管理员重置用户密码
+app.post('/api/admin/users/:userId/reset-password', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params
+    const { newPassword } = req.body
+    if (!newPassword) return res.status(400).json({ error: 'New password is required' })
+    const { validatePassword } = await import('./auth.js')
+    const validation = validatePassword(newPassword)
+    if (!validation.valid) return res.status(400).json({ error: validation.message })
+
+    const hash = await bcrypt.hash(newPassword, 10)
+    if (useDb) {
+      await query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, userId])
+    } else {
+      const user = getUserById(userId)
+      if (!user) return res.status(404).json({ error: 'User not found' })
+      user.password = hash
+    }
+    res.json({ success: true, message: 'Password reset successfully' })
+  } catch (error) {
     res.status(500).json({ error: error.message })
   }
 })
