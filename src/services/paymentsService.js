@@ -16,9 +16,19 @@ export const paymentsService = {
   },
 
   async createCheckoutSession(planType = 'pro') {
-    const res = await api.post('/payments/create-checkout-session', {
-      planType,
-    })
+    const token = localStorage.getItem('glowlisting_token')
+    const successUrl = `${window.location.origin}/payment-success`
+    const cancelUrl = `${window.location.origin}/payment-cancel`
+    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+    const res = await api.post(
+      '/payments/create-checkout-session',
+      {
+        planType,
+        successUrl,
+        cancelUrl,
+      },
+      { headers }
+    )
     return res.data
   },
 }
