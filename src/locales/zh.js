@@ -482,6 +482,7 @@ export const zh = {
     startPro: '升级 Pro',
     buyPack: '购买图片包',
     contactSales: '联系我们',
+    checkoutError: '支付失败，请重试。',
     features: {
       freeImages: '免费增强最多 5 张图片',
       freeNoCard: '无需信用卡',

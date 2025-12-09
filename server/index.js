@@ -84,6 +84,7 @@ const getChartDataSafe = async (s, e) => useDb ? await getChartDataAsync(s, e) :
 const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
 
 // Stripe plan constants
@@ -1787,8 +1788,10 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
     }
 
     const { planType = 'pro', successUrl, cancelUrl } = req.body
-    const origin = req.headers.origin || 'http://localhost:5173'
+    const origin = req.headers.origin || FRONTEND_URL
     const userId = req.userId
+    const currentUser = await getUserByIdSafe(userId)
+    const customerEmail = currentUser?.email
 
     let sessionPayload = {
       client_reference_id: userId,
@@ -1798,6 +1801,7 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
       },
       success_url: successUrl || `${origin}/payment-success`,
       cancel_url: cancelUrl || `${origin}/payment-cancel`,
+      customer_email: customerEmail,
     }
 
     if (planType === 'pro') {
@@ -1873,14 +1877,45 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
 
       if (userId && planType === 'pack') {
         await addTokensToUserSafe(userId, PACK_ONETIME.images)
+        if (useDb) {
+          await query(
+            `INSERT INTO revenue (user_id, amount, currency, source) VALUES ($1,$2,$3,$4)`,
+            [userId, PACK_ONETIME.amount / 100, PACK_ONETIME.currency, 'stripe_pack']
+          )
+        }
       } else if (userId && planType === 'pro') {
         await setUserTokensSafe(userId, PLAN_PRO.imagesPerMonth)
+        if (useDb) {
+          await query(
+            `INSERT INTO revenue (user_id, amount, currency, source) VALUES ($1,$2,$3,$4)`,
+            [userId, PLAN_PRO.amount / 100, PLAN_PRO.currency, 'stripe_pro']
+          )
+          await query(
+            `INSERT INTO subscriptions (user_id, plan_type, status, current_period_end)
+             VALUES ($1, $2, 'active', NOW() + INTERVAL '30 days')
+             ON CONFLICT (user_id) DO UPDATE SET plan_type=$2, status='active', current_period_end=EXCLUDED.current_period_end`,
+            [userId, 'pro']
+          )
+        }
       }
     } else if (event.type === 'invoice.payment_succeeded') {
       const invoice = event.data.object
       const userId = invoice.metadata?.userId || invoice.customer_email // fallback
       if (userId) {
         await setUserTokensSafe(userId, PLAN_PRO.imagesPerMonth)
+        if (useDb) {
+          await query(
+            `INSERT INTO revenue (user_id, amount, currency, source) VALUES ($1,$2,$3,$4)`,
+            [userId, (invoice.amount_paid || PLAN_PRO.amount) / 100, invoice.currency || PLAN_PRO.currency, 'stripe_pro']
+          )
+          const periodEnd = invoice.lines?.data?.[0]?.period?.end || Math.floor(Date.now() / 1000) + 2592000
+          await query(
+            `INSERT INTO subscriptions (user_id, plan_type, status, current_period_end)
+             VALUES ($1, $2, 'active', to_timestamp($3))
+             ON CONFLICT (user_id) DO UPDATE SET plan_type=$2, status='active', current_period_end=to_timestamp($3)`,
+            [userId, 'pro', periodEnd]
+          )
+        }
       }
     } else if (event.type === 'customer.subscription.deleted' || event.type === 'invoice.payment_failed') {
       const subscription = event.data.object
@@ -1888,6 +1923,12 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
       if (userId) {
         // 禁用订阅权益：不自动清零，用户仍保留当前剩余次数
         console.log(`Subscription ended for user ${userId}`)
+        if (useDb) {
+          await query(
+            `UPDATE subscriptions SET status='canceled', current_period_end=NOW() WHERE user_id=$1`,
+            [userId]
+          )
+        }
       }
     }
 
