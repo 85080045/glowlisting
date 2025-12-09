@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useNavigate } from 'react-router-dom'
-import { User, Image as ImageIcon, LogOut, Settings, AlertTriangle } from 'lucide-react'
+import { User, Image as ImageIcon, LogOut, Settings, AlertTriangle, Star } from 'lucide-react'
 import Header from './Header'
 import UploadSection from './UploadSection'
 
@@ -26,6 +26,14 @@ export default function Dashboard() {
     return null
   }
 
+  const getPlanLabel = () => {
+    if (user.isAdmin) return t('dashboard.planAdmin')
+    if (tokens >= 100) return t('dashboard.planPro')
+    if (tokens >= 25) return t('dashboard.planPack')
+    if (tokens > 0) return t('dashboard.planTrial')
+    return t('dashboard.planFree')
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex flex-col">
       <Header />
@@ -40,6 +48,10 @@ export default function Dashboard() {
               <div className="min-w-0 flex-1">
                 <h2 className="text-xl md:text-2xl font-bold text-white truncate">{user.name}</h2>
                 <p className="text-sm md:text-base text-gray-400 truncate">{user.email}</p>
+                <div className="flex items-center space-x-2 mt-2">
+                  <Star className="h-4 w-4 text-yellow-400" />
+                  <span className="text-sm text-yellow-300">{getPlanLabel()}</span>
+                </div>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">

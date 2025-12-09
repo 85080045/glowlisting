@@ -57,6 +57,8 @@ export default function AdminDashboard() {
   const [userHasTokens, setUserHasTokens] = useState('all')
   const [userDateStart, setUserDateStart] = useState(null)
   const [userDateEnd, setUserDateEnd] = useState(null)
+  const [userPage, setUserPage] = useState(1)
+  const [userPageSize, setUserPageSize] = useState(20)
 
   useEffect(() => {
     console.log('AdminDashboard useEffect - user:', user)
@@ -224,6 +226,30 @@ export default function AdminDashboard() {
       String.fromCodePoint(char.charCodeAt(0) + 127397)
     )
   }
+
+  // Client-side filtered & paginated users
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
+      !userSearch ||
+      (u.name && u.name.toLowerCase().includes(userSearch.toLowerCase())) ||
+      (u.email && u.email.toLowerCase().includes(userSearch.toLowerCase()))
+    const matchesRole =
+      userRoleFilter === 'all' ||
+      (userRoleFilter === 'admin' && (u.isAdmin || u.is_admin)) ||
+      (userRoleFilter === 'user' && !(u.isAdmin || u.is_admin))
+    const matchesTokens =
+      userHasTokens === 'all' ||
+      (userHasTokens === 'yes' && (u.tokens || 0) > 0) ||
+      (userHasTokens === 'no' && (u.tokens || 0) === 0)
+    const created = u.createdAt || u.created_at
+    const matchesDate =
+      !userDateStart ||
+      !userDateEnd ||
+      (created && new Date(created) >= userDateStart && new Date(created) <= userDateEnd)
+    return matchesSearch && matchesRole && matchesTokens && matchesDate
+  })
+  const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / userPageSize))
+  const pagedUsers = filteredUsers.slice((userPage - 1) * userPageSize, userPage * userPageSize)
 
   if (loading) {
     return (
@@ -751,7 +777,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
-                  {users.map((u) => (
+                  {pagedUsers.map((u) => (
                     <tr key={u.id} className="hover:bg-gray-800/30 transition-colors">
                       <td className="px-6 py-4 text-sm text-white">{u.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-300">{u.email}</td>
@@ -837,6 +863,41 @@ export default function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            {/* Pagination */}
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="text-sm text-gray-400">
+                {t('adminDashboard.total')}: {filteredUsers.length}
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={userPageSize}
+                  onChange={(e) => {
+                    setUserPageSize(parseInt(e.target.value))
+                    setUserPage(1)
+                  }}
+                  className="bg-gray-900/50 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {[10, 20, 50, 100].map((s) => (
+                    <option key={s} value={s}>{s}/page</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setUserPage(Math.max(1, userPage - 1))}
+                  className="px-3 py-1 rounded bg-gray-800 text-white disabled:opacity-50"
+                  disabled={userPage <= 1}
+                >
+                  Prev
+                </button>
+                <span className="text-gray-300 text-sm">{userPage} / {totalUserPages}</span>
+                <button
+                  onClick={() => setUserPage(Math.min(totalUserPages, userPage + 1))}
+                  className="px-3 py-1 rounded bg-gray-800 text-white disabled:opacity-50"
+                  disabled={userPage >= totalUserPages}
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </div>
         )}
