@@ -54,7 +54,9 @@ export const AuthProvider = ({ children }) => {
       setTokens(response.tokens || 0)
       return { success: true }
     } catch (error) {
-      return { success: false, error: error.message }
+      // 优先显示后端返回的具体错误信息
+      const errorMessage = error.response?.data?.error || error.message || 'Login failed'
+      return { success: false, error: errorMessage }
     }
   }
 
@@ -66,7 +68,9 @@ export const AuthProvider = ({ children }) => {
       setTokens(response.tokens || 0)
       return { success: true }
     } catch (error) {
-      return { success: false, error: error.message }
+      // 优先显示后端返回的具体错误信息
+      const errorMessage = error.response?.data?.error || error.message || 'Registration failed'
+      return { success: false, error: errorMessage }
     }
   }
 
