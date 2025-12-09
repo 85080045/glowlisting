@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
@@ -10,6 +11,8 @@ const activeSessions = new Set() // 在线用户session ID集合
 const tokenUsageHistory = [] // Token使用历史记录 { userId, timestamp, action }
 const revenueHistory = [] // 收入记录 { userId, amount, timestamp, type }
 const subscriptions = [] // 订阅记录 { userId, plan, startDate, endDate, status }
+const passwordResetTokens = new Map() // email -> { token, expiresAt }
+const passwordResetTokens = new Map() // email -> { token, expiresAt }
 
 // 初始化默认用户（用于测试）
 users.push({
@@ -53,11 +56,34 @@ export const authMiddleware = (req, res, next) => {
   }
 }
 
+// 密码验证函数
+export const validatePassword = (password) => {
+  if (password.length < 8) {
+    return { valid: false, message: 'Password must be at least 8 characters long' }
+  }
+  
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one uppercase letter' }
+  }
+  
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one special character' }
+  }
+  
+  return { valid: true }
+}
+
 export const registerUser = async (name, email, password) => {
   // 检查用户是否已存在
   const existingUser = users.find(u => u.email === email)
   if (existingUser) {
     throw new Error('User already exists')
+  }
+
+  // 验证密码
+  const passwordValidation = validatePassword(password)
+  if (!passwordValidation.valid) {
+    throw new Error(passwordValidation.message)
   }
 
   // 创建新用户
@@ -70,6 +96,8 @@ export const registerUser = async (name, email, password) => {
     createdAt: new Date(),
     totalProcessed: 0,
     tokensUsed: 0,
+    resetPasswordToken: null,
+    resetPasswordExpires: null,
   }
 
   users.push(newUser)
@@ -96,8 +124,71 @@ export const getUserById = (userId) => {
   return users.find(u => u.id === userId)
 }
 
+export const getUserByEmail = (email) => {
+  return users.find(u => u.email === email)
+}
+
 export const getUserTokens = (userId) => {
   return tokens.get(userId) || 0
+}
+
+// 生成密码重置token
+export const generatePasswordResetToken = (email) => {
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = Date.now() + 3600000 // 1小时后过期
+  
+  passwordResetTokens.set(email, { token, expiresAt })
+  
+  return token
+}
+
+// 验证密码重置token
+export const verifyPasswordResetToken = (email, token) => {
+  const resetInfo = passwordResetTokens.get(email)
+  
+  if (!resetInfo) {
+    return { valid: false, message: 'Invalid or expired reset token' }
+  }
+  
+  if (Date.now() > resetInfo.expiresAt) {
+    passwordResetTokens.delete(email)
+    return { valid: false, message: 'Reset token has expired' }
+  }
+  
+  if (resetInfo.token !== token) {
+    return { valid: false, message: 'Invalid reset token' }
+  }
+  
+  return { valid: true }
+}
+
+// 重置密码
+export const resetPassword = async (email, token, newPassword) => {
+  // 验证token
+  const tokenValidation = verifyPasswordResetToken(email, token)
+  if (!tokenValidation.valid) {
+    throw new Error(tokenValidation.message)
+  }
+  
+  // 验证新密码
+  const passwordValidation = validatePassword(newPassword)
+  if (!passwordValidation.valid) {
+    throw new Error(passwordValidation.message)
+  }
+  
+  // 找到用户
+  const user = getUserByEmail(email)
+  if (!user) {
+    throw new Error('User not found')
+  }
+  
+  // 更新密码
+  user.password = await bcrypt.hash(newPassword, 10)
+  
+  // 删除重置token
+  passwordResetTokens.delete(email)
+  
+  return user
 }
 
 export const setUserTokens = (userId, count) => {

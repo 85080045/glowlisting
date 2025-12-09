@@ -393,6 +393,130 @@ app.post('/api/auth/login', async (req, res) => {
   }
 })
 
+// 忘记密码 - 发送重置邮件
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email, language = 'en' } = req.body
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' })
+    }
+
+    const { getUserByEmail, generatePasswordResetToken } = await import('./auth.js')
+    const user = getUserByEmail(email)
+
+    // 即使用户不存在，也返回成功（防止邮箱枚举攻击）
+    if (!user) {
+      return res.json({ success: true, message: 'If the email exists, a password reset link has been sent' })
+    }
+
+    // 生成重置token
+    const resetToken = generatePasswordResetToken(email)
+
+    // 发送重置邮件
+    const sendGridApiKey = process.env.SENDGRID_API_KEY
+    const sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || 'hello@glowlisting.ai'
+    const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
+    const mailLanguage = language === 'zh' ? 'zh' : 'en'
+
+    // 构建重置链接（前端URL + token）
+    const frontendUrl = process.env.FRONTEND_URL || 'https://glowlisting.ai'
+    const resetLink = `${frontendUrl}/reset-password?email=${encodeURIComponent(email)}&token=${resetToken}`
+
+    if (sendGridApiKey) {
+      sgMail.setApiKey(sendGridApiKey)
+      
+      let subject, htmlContent, textContent
+      
+      if (mailLanguage === 'zh') {
+        subject = 'GlowListing 密码重置'
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #3B82F6;">GlowListing 密码重置</h2>
+            <p>您好！</p>
+            <p>我们收到了您的密码重置请求。请点击下面的链接重置您的密码：</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetLink}" style="background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">重置密码</a>
+            </div>
+            <p>如果按钮无法点击，请复制以下链接到浏览器：</p>
+            <p style="color: #6B7280; font-size: 12px; word-break: break-all;">${resetLink}</p>
+            <p>此链接将在 <strong>1小时</strong> 后过期。</p>
+            <p>如果您没有请求重置密码，请忽略此邮件。</p>
+            <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
+              © 2025 GlowListing. 保留所有权利。
+            </p>
+          </div>
+        `
+        textContent = `请点击以下链接重置密码：${resetLink}（1小时内有效）`
+      } else {
+        subject = 'GlowListing Password Reset'
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #3B82F6;">GlowListing Password Reset</h2>
+            <p>Hello!</p>
+            <p>We received a request to reset your password. Please click the link below to reset your password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetLink}" style="background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
+            </div>
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="color: #6B7280; font-size: 12px; word-break: break-all;">${resetLink}</p>
+            <p>This link will expire in <strong>1 hour</strong>.</p>
+            <p>If you did not request a password reset, please ignore this email.</p>
+            <p style="color: #9CA3AF; font-size: 12px; margin-top: 20px;">
+              © 2025 GlowListing. All rights reserved.
+            </p>
+          </div>
+        `
+        textContent = `Please click the following link to reset your password: ${resetLink} (valid for 1 hour)`
+      }
+
+      const msg = {
+        to: email,
+        from: {
+          email: sendGridFromEmail,
+          name: fromName,
+        },
+        subject: subject,
+        text: textContent,
+        html: htmlContent,
+      }
+
+      await sgMail.send(msg)
+      console.log(`✅ 密码重置邮件已发送到 ${email}`)
+    } else {
+      // 如果没有配置邮件服务，返回错误
+      return res.status(500).json({ 
+        error: mailLanguage === 'zh' 
+          ? '邮件服务未配置，请联系管理员' 
+          : 'Email service not configured. Please contact administrator'
+      })
+    }
+
+    res.json({ success: true, message: 'Password reset email sent' })
+  } catch (error) {
+    console.error('发送密码重置邮件失败:', error)
+    res.status(500).json({ error: 'Failed to send password reset email' })
+  }
+})
+
+// 重置密码
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body
+
+    if (!email || !token || !newPassword) {
+      return res.status(400).json({ error: 'Email, token, and new password are required' })
+    }
+
+    const { resetPassword } = await import('./auth.js')
+    await resetPassword(email, token, newPassword)
+
+    res.json({ success: true, message: 'Password reset successfully' })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+})
+
 // 获取当前用户信息
 app.get('/api/auth/me', authMiddleware, (req, res) => {
   try {
@@ -894,7 +1018,20 @@ B. 室外照片 (Facade/Garden)：
         if (apiResponse.status !== 200) {
           console.error('API returned non-200 status:', apiResponse.status)
           console.error('Response data:', JSON.stringify(apiResponse.data, null, 2))
-          throw new Error(`API 返回错误状态码: ${apiResponse.status}. 错误信息: ${JSON.stringify(apiResponse.data)}`)
+          
+          // 提供更友好的错误信息
+          let errorMessage = 'Image processing failed'
+          if (apiResponse.status === 429) {
+            errorMessage = 'API quota exceeded. Please try again later or contact support.'
+          } else if (apiResponse.status === 401 || apiResponse.status === 403) {
+            errorMessage = 'API authentication failed. Please check API key configuration.'
+          } else if (apiResponse.data?.error?.message) {
+            errorMessage = `API error: ${apiResponse.data.error.message}`
+          } else {
+            errorMessage = `API returned error status: ${apiResponse.status}`
+          }
+          
+          throw new Error(errorMessage)
         }
 
         // 从响应中提取生成的图像

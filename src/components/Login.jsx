@@ -14,6 +14,7 @@ export default function Login() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [isLogin, setIsLogin] = useState(true)
+  const [isForgotPassword, setIsForgotPassword] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -27,6 +28,7 @@ export default function Login() {
   const [sendingCode, setSendingCode] = useState(false)
   const [codeCountdown, setCodeCountdown] = useState(0)
   const [recaptchaToken, setRecaptchaToken] = useState(null)
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
   const recaptchaRef = useRef(null)
 
   // 错误信息映射函数，将后端错误转换为友好的提示
@@ -83,8 +85,19 @@ export default function Login() {
         setLoading(false)
         return
       }
-      if (formData.password.length < 6) {
+      // 密码验证：8位以上，至少一个大写字母和一个符号
+      if (formData.password.length < 8) {
         setError(t('auth.passwordTooShort'))
+        setLoading(false)
+        return
+      }
+      if (!/[A-Z]/.test(formData.password)) {
+        setError(t('auth.passwordNoUppercase'))
+        setLoading(false)
+        return
+      }
+      if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password)) {
+        setError(t('auth.passwordNoSpecial'))
         setLoading(false)
         return
       }
@@ -278,13 +291,98 @@ export default function Login() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h2 className="text-4xl font-bold text-white mb-2">
-            {isLogin ? t('auth.login') : t('auth.register')}
+            {isForgotPassword 
+              ? t('auth.forgotPassword') 
+              : isLogin 
+                ? t('auth.login') 
+                : t('auth.register')}
           </h2>
           <p className="text-gray-400">
-            {isLogin ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}
+            {isForgotPassword 
+              ? t('auth.forgotPasswordSubtitle')
+              : isLogin 
+                ? t('auth.loginSubtitle') 
+                : t('auth.registerSubtitle')}
           </p>
         </div>
 
+        {forgotPasswordSent ? (
+          <div className="glass-dark rounded-2xl p-8 text-center">
+            <div className="mb-4">
+              <Mail className="mx-auto h-12 w-12 text-green-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">
+              {t('auth.forgotPasswordEmailSent')}
+            </h3>
+            <p className="text-gray-400 mb-6">
+              {t('auth.forgotPasswordCheckEmail')}
+            </p>
+            <button
+              onClick={() => {
+                setIsForgotPassword(false)
+                setForgotPasswordSent(false)
+                setFormData({ ...formData, email: '' })
+              }}
+              className="text-blue-400 hover:text-blue-300"
+            >
+              {t('auth.backToLogin')}
+            </button>
+          </div>
+        ) : isForgotPassword ? (
+          <div className="glass-dark rounded-2xl p-8 relative">
+            <form onSubmit={handleForgotPassword} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  {t('auth.email')}
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500" />
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder={t('auth.emailPlaceholder')}
+                    required
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                    {t('auth.sending')}
+                  </>
+                ) : (
+                  t('auth.sendResetLink')
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotPassword(false)
+                  setError('')
+                }}
+                className="w-full text-center text-blue-400 hover:text-blue-300"
+              >
+                {t('auth.backToLogin')}
+              </button>
+            </form>
+          </div>
+        ) : (
         <div className="glass-dark rounded-2xl p-8 relative">
           {/* Google 和 Facebook 登录按钮 */}
           <div className="space-y-3 mb-6">
@@ -360,9 +458,20 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                {t('auth.password')}
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-gray-300">
+                  {t('auth.password')}
+                </label>
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPassword(true)}
+                    className="text-sm text-blue-400 hover:text-blue-300"
+                  >
+                    {t('auth.forgotPassword')}
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500" />
                 <input
@@ -374,6 +483,11 @@ export default function Login() {
                   placeholder={t('auth.passwordPlaceholder')}
                 />
               </div>
+              {!isLogin && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {t('auth.passwordRequirements')}
+                </p>
+              )}
             </div>
 
             {!isLogin && (
