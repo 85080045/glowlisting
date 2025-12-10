@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
-import { LogIn, Mail, Lock, User, Loader2 } from 'lucide-react'
+import { LogIn, Mail, Lock, User, Loader2, Camera } from 'lucide-react'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
@@ -324,8 +324,23 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex flex-col">
+      {/* 顶部导航栏 */}
+      <div className="w-full py-4 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <Link 
+            to="/" 
+            className="inline-flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <Camera className="h-6 w-6 md:h-8 md:w-8 text-blue-400" />
+            <span className="text-xl md:text-2xl font-bold text-white">GlowListing</span>
+          </Link>
+        </div>
+      </div>
+      
+      {/* 登录表单区域 */}
+      <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h2 className="text-4xl font-bold text-white mb-2">
             {isForgotPassword 
@@ -638,6 +653,7 @@ export default function Login() {
           </div>
         </div>
         )}
+        </div>
       </div>
     </div>
   )
