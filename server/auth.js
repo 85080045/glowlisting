@@ -45,8 +45,9 @@ tokens.set('999', 9999) // 超级管理员有9999个token
 
 export const authMiddleware = (req, res, next) => {
   try {
-    // 处理 OPTIONS 预检请求
+    // 处理 OPTIONS 预检请求（不应该到达这里，但为了安全还是处理）
     if (req.method === 'OPTIONS') {
+      console.log(`[Auth] OPTIONS request to ${req.path} - allowing preflight`)
       return res.status(200).end()
     }
     

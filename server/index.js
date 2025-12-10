@@ -130,6 +130,15 @@ app.use(cors({
   exposedHeaders: ['x-tokens-remaining']
 }))
 
+// 处理 OPTIONS 预检请求（必须在其他中间件之前）
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.header('Access-Control-Allow-Credentials', 'true')
+  res.sendStatus(200)
+})
+
 // 对 Stripe webhook 需要保留原始请求体，其余使用 JSON
 app.use((req, res, next) => {
   if (req.originalUrl === '/api/payments/webhook') {

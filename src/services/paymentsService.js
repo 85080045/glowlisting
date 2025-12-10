@@ -71,12 +71,25 @@ export const paymentsService = {
       })
       
       // 使用拦截器自动添加 token，不需要手动添加
+      // 但为了确保 token 被发送，我们也在请求前再次确认
+      const finalToken = localStorage.getItem('glowlisting_token')
+      if (!finalToken) {
+        throw new Error('Token not found in localStorage')
+      }
+      
+      console.log('Sending POST request with token:', finalToken.substring(0, 20) + '...')
+      
       const res = await api.post(
         '/payments/create-checkout-session',
         {
           planType,
           successUrl,
           cancelUrl,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${finalToken}`,
+          },
         }
       )
       
