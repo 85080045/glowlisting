@@ -1877,19 +1877,54 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
     if (planType === 'pro') {
       // 优先使用 Stripe Dashboard 中创建的 Price ID
       if (PLAN_PRO.priceId) {
-        console.log('Using Stripe Price ID for Pro plan:', PLAN_PRO.priceId)
-        sessionPayload = {
-          ...sessionPayload,
-          mode: 'subscription',
-          subscription_data: {
-            metadata: { userId: String(userId), planType },
-          },
-          line_items: [
-            {
-              price: PLAN_PRO.priceId,
-              quantity: 1,
+        // 检查是否是 Price ID (price_xxxxx) 还是 Product ID (prod_xxxxx)
+        const isPriceId = PLAN_PRO.priceId.startsWith('price_')
+        const isProductId = PLAN_PRO.priceId.startsWith('prod_')
+        
+        if (isPriceId) {
+          console.log('Using Stripe Price ID for Pro plan:', PLAN_PRO.priceId)
+          sessionPayload = {
+            ...sessionPayload,
+            mode: 'subscription',
+            subscription_data: {
+              metadata: { userId: String(userId), planType },
             },
-          ],
+            line_items: [
+              {
+                price: PLAN_PRO.priceId,
+                quantity: 1,
+              },
+            ],
+          }
+        } else if (isProductId) {
+          console.log('Using Stripe Product ID for Pro plan (will create price dynamically):', PLAN_PRO.priceId)
+          // 如果提供的是 Product ID，使用 price_data 并指定 product
+          sessionPayload = {
+            ...sessionPayload,
+            mode: 'subscription',
+            subscription_data: {
+              metadata: { userId: String(userId), planType },
+            },
+            line_items: [
+              {
+                price_data: {
+                  currency: PLAN_PRO.currency,
+                  product: PLAN_PRO.priceId, // 使用 Product ID
+                  unit_amount: PLAN_PRO.amount,
+                  recurring: { 
+                    interval: PLAN_PRO.interval,
+                  },
+                },
+                quantity: 1,
+              },
+            ],
+          }
+        } else {
+          console.error('Invalid Price/Product ID format for Pro plan:', PLAN_PRO.priceId)
+          return res.status(400).json({ 
+            error: 'Invalid Price ID format', 
+            message: 'Price ID must start with "price_" or "prod_". Please check your STRIPE_PRICE_ID_PRO environment variable.' 
+          })
         }
       } else {
         console.log('Using price_data for Pro plan (Price ID not set)')
@@ -1921,19 +1956,51 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
     } else if (planType === 'pack') {
       // 优先使用 Stripe Dashboard 中创建的 Price ID
       if (PACK_ONETIME.priceId) {
-        console.log('Using Stripe Price ID for Pack plan:', PACK_ONETIME.priceId)
-        sessionPayload = {
-          ...sessionPayload,
-          mode: 'payment',
-          payment_intent_data: {
-            metadata: { userId: String(userId), planType },
-          },
-          line_items: [
-            {
-              price: PACK_ONETIME.priceId,
-              quantity: 1,
+        // 检查是否是 Price ID (price_xxxxx) 还是 Product ID (prod_xxxxx)
+        const isPriceId = PACK_ONETIME.priceId.startsWith('price_')
+        const isProductId = PACK_ONETIME.priceId.startsWith('prod_')
+        
+        if (isPriceId) {
+          console.log('Using Stripe Price ID for Pack plan:', PACK_ONETIME.priceId)
+          sessionPayload = {
+            ...sessionPayload,
+            mode: 'payment',
+            payment_intent_data: {
+              metadata: { userId: String(userId), planType },
             },
-          ],
+            line_items: [
+              {
+                price: PACK_ONETIME.priceId,
+                quantity: 1,
+              },
+            ],
+          }
+        } else if (isProductId) {
+          console.log('Using Stripe Product ID for Pack plan (will create price dynamically):', PACK_ONETIME.priceId)
+          // 如果提供的是 Product ID，使用 price_data 并指定 product
+          sessionPayload = {
+            ...sessionPayload,
+            mode: 'payment',
+            payment_intent_data: {
+              metadata: { userId: String(userId), planType },
+            },
+            line_items: [
+              {
+                price_data: {
+                  currency: PACK_ONETIME.currency,
+                  product: PACK_ONETIME.priceId, // 使用 Product ID
+                  unit_amount: PACK_ONETIME.amount,
+                },
+                quantity: 1,
+              },
+            ],
+          }
+        } else {
+          console.error('Invalid Price/Product ID format for Pack plan:', PACK_ONETIME.priceId)
+          return res.status(400).json({ 
+            error: 'Invalid Price ID format', 
+            message: 'Price ID must start with "price_" or "prod_". Please check your STRIPE_PRICE_ID_PACK environment variable.' 
+          })
         }
       } else {
         // 使用 price_data 动态创建
