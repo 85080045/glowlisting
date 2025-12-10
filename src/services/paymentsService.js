@@ -70,28 +70,13 @@ export const paymentsService = {
         tokenPrefix: token.substring(0, 20)
       })
       
-      // 确保 token 被正确发送
-      const finalToken = localStorage.getItem('glowlisting_token')
-      if (!finalToken) {
-        throw new Error('Token not found in localStorage')
-      }
-      
-      console.log('Sending POST request with token:', finalToken.substring(0, 20) + '...')
-      console.log('Full token:', finalToken)
-      
-      // 直接使用 axios 发送请求，确保 header 被正确设置
-      const res = await axios.post(
-        `${API_URL}/payments/create-checkout-session`,
+      // 使用 api 实例，它会自动通过拦截器添加 Authorization header
+      const res = await api.post(
+        '/payments/create-checkout-session',
         {
           planType,
           successUrl,
           cancelUrl,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${finalToken}`,
-          },
         }
       )
       
