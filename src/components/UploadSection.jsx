@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Upload, Loader2, Download, X, Image as ImageIcon, AlertTriangle, Maximize2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock3, RefreshCw } from 'lucide-react'
+import { Upload, Loader2, Download, X, Image as ImageIcon, AlertTriangle, Maximize2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock3, RefreshCw, Coins } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { enhanceImage, downloadHDImage } from '../services/enhanceService'

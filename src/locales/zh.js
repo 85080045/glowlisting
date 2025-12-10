@@ -87,6 +87,7 @@ export const zh = {
     planPack: '一次性套餐',
     planTrial: '免费试用',
     planFree: '免费（无图片额度）',
+    tokensRemaining: '剩余额度',
     totalProcessed: '已处理总数',
     memberSince: '注册时间',
     storageNotice: '存储提示',

@@ -87,6 +87,7 @@ export const en = {
     planPack: 'One-Time Pack',
     planTrial: 'Free Trial',
     planFree: 'Free (no images)',
+    tokensRemaining: 'Remaining credits',
     totalProcessed: 'Total Processed',
     memberSince: 'Member Since',
     storageNotice: 'Storage Notice',
