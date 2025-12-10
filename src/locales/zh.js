@@ -244,6 +244,8 @@ export const zh = {
     apply: '应用',
     trendChart: '趋势图表',
     noChartData: '所选时间范围内没有数据',
+    auditLogs: '审计日志',
+    target: '目标',
   },
   
   // Hero

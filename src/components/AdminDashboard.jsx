@@ -50,6 +50,8 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([])
   const [usage, setUsage] = useState([])
   const [usageAction, setUsageAction] = useState('') // generate/download/all
+  const [auditLogs, setAuditLogs] = useState([])
+  const [advancedStats, setAdvancedStats] = useState(null)
   const [resetPasswordUser, setResetPasswordUser] = useState(null)
   const [resetPasswordValue, setResetPasswordValue] = useState('')
   const [userSearch, setUserSearch] = useState('')
@@ -118,12 +120,16 @@ export default function AdminDashboard() {
       const listParams = customStartDate && customEndDate
         ? { startDate: customStartDate.toISOString(), endDate: customEndDate.toISOString(), limit: 50 }
         : { range: timeRange, limit: 50 }
-      const [ordersRes, usageRes] = await Promise.all([
+      const [ordersRes, usageRes, auditRes, advancedRes] = await Promise.all([
         axios.get(`${API_URL}/admin/orders`, { headers: { Authorization: `Bearer ${token}` }, params: listParams }),
-        axios.get(`${API_URL}/admin/usage`, { headers: { Authorization: `Bearer ${token}` }, params: { ...listParams, action: usageAction || undefined } })
+        axios.get(`${API_URL}/admin/usage`, { headers: { Authorization: `Bearer ${token}` }, params: { ...listParams, action: usageAction || undefined } }),
+        axios.get(`${API_URL}/admin/audit-logs`, { headers: { Authorization: `Bearer ${token}` }, params: { limit: 100 } }).catch(() => ({ data: { logs: [] } })),
+        axios.get(`${API_URL}/admin/advanced-stats`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { stats: null } }))
       ])
       setOrders(ordersRes.data.orders || [])
       setUsage(usageRes.data.usage || [])
+      setAuditLogs(auditRes.data.logs || [])
+      setAdvancedStats(advancedRes.data.stats || null)
     } catch (error) {
       console.error('Failed to fetch admin data:', error)
       console.error('Error response:', error.response?.data)
@@ -1019,7 +1025,59 @@ export default function AdminDashboard() {
           <div className="glass-dark rounded-xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-white">{t('adminDashboard.recentOrders')}</h2>
-              <span className="text-sm text-gray-400">{t('adminDashboard.lastNRecords', { count: 50 })}</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    const token = localStorage.getItem('glowlisting_token')
+                    const params = {}
+                    if (startDate && endDate) {
+                      params.startDate = startDate.toISOString()
+                      params.endDate = endDate.toISOString()
+                    }
+                    const res = await axios.get(`${API_URL}/admin/export/orders`, {
+                      headers: { Authorization: `Bearer ${token}` },
+                      params,
+                    })
+                    const data = res.data.orders || []
+                    const csv = ['date,user,email,amount,currency,plan,source']
+                      .concat(
+                        data.map(o =>
+                          [
+                            o.created_at,
+                            o.name || '-',
+                            o.email || '-',
+                            o.amount || 0,
+                            o.currency || 'usd',
+                            o.source || '-',
+                            o.source || '-',
+                          ].map(v => {
+                            const str = (v ?? '').toString()
+                            const quoteChar = String.fromCharCode(34)
+                            const doubleQuote = quoteChar + quoteChar
+                            const escaped = str.split(quoteChar).join(doubleQuote)
+                            const result = quoteChar + escaped + quoteChar
+                            return result
+                          }).join(',')
+                        )
+                      )
+                      .join('\n')
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+                    const url = window.URL.createObjectURL(blob)
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.setAttribute('download', 'orders.csv')
+                    document.body.appendChild(link)
+                    link.click()
+                    link.remove()
+                    window.URL.revokeObjectURL(url)
+                  }}
+                  className="btn-secondary h-fit flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  {t('adminDashboard.export')}
+                </button>
+                <span className="text-sm text-gray-400">{t('adminDashboard.lastNRecords', { count: 50 })}</span>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -1201,6 +1259,50 @@ export default function AdminDashboard() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 审计日志 */}
+        {activeTab === 'audit' && (
+          <div className="glass-dark rounded-xl p-6 space-y-4">
+            <h2 className="text-xl font-bold text-white">{t('adminDashboard.auditLogs') || 'Audit Logs'}</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-800/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.time')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.admin')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.action')}</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.target') || 'Target'}</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">IP</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {auditLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-gray-800/30 transition-colors">
+                      <td className="px-4 py-3 text-sm text-gray-300">
+                        {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-white">
+                        {log.admin_name || log.admin_email || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-300">{log.action || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-300">
+                        {log.target_name || log.target_email || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-400 text-xs">{log.ip_address || '-'}</td>
+                    </tr>
+                  ))}
+                  {auditLogs.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-6 text-center text-gray-400 text-sm" colSpan={5}>
+                        {t('adminDashboard.noData')}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

@@ -244,6 +244,8 @@ export const en = {
     apply: 'Apply',
     trendChart: 'Trend Chart',
     noChartData: 'No data available for the selected time range',
+    auditLogs: 'Audit Logs',
+    target: 'Target',
   },
   
   // Hero
