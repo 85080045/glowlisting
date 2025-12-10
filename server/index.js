@@ -807,21 +807,36 @@ app.get('/api/images/history', authMiddleware, async (req, res) => {
     // 只获取30分钟内创建的图片
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
     
-    // 从数据库获取用户的图片历史（仅30分钟内）
-    const result = await query(
-      `SELECT id, filename, original_filename, thumbnail_data, enhanced_data, original_data, 
-              file_size, mime_type, created_at
-       FROM images 
-       WHERE user_id = $1 AND created_at >= $2
-       ORDER BY created_at DESC 
-       LIMIT 100`,
-      [req.userId, thirtyMinutesAgo]
-    )
+    // 检查表是否存在，如果不存在或字段不存在，使用基础查询
+    let result
+    try {
+      // 尝试查询所有字段（包括新添加的字段）
+      result = await query(
+        `SELECT id, filename, original_filename, thumbnail_data, enhanced_data, original_data, 
+                file_size, mime_type, created_at
+         FROM images 
+         WHERE user_id = $1 AND created_at >= $2
+         ORDER BY created_at DESC 
+         LIMIT 100`,
+        [req.userId, thirtyMinutesAgo]
+      )
+    } catch (queryError) {
+      // 如果查询失败（可能是字段不存在），使用基础字段查询
+      console.warn('使用基础字段查询图片历史:', queryError.message)
+      result = await query(
+        `SELECT id, filename, created_at
+         FROM images 
+         WHERE user_id = $1 AND created_at >= $2
+         ORDER BY created_at DESC 
+         LIMIT 100`,
+        [req.userId, thirtyMinutesAgo]
+      )
+    }
     
     const images = result.rows.map(row => ({
       id: row.id,
-      filename: row.filename || row.original_filename || 'image.jpg',
-      originalFilename: row.original_filename,
+      filename: row.filename || 'image.jpg',
+      originalFilename: row.original_filename || null,
       thumbnail: row.thumbnail_data || null,
       enhanced: row.enhanced_data || null,
       original: row.original_data || null,
@@ -833,7 +848,8 @@ app.get('/api/images/history', authMiddleware, async (req, res) => {
     res.json({ success: true, images })
   } catch (error) {
     console.error('Get image history error:', error)
-    res.status(500).json({ error: 'Failed to fetch image history' })
+    console.error('Error stack:', error.stack)
+    res.status(500).json({ error: 'Failed to fetch image history', message: error.message })
   }
 })
 
@@ -2730,6 +2746,27 @@ if (useDb) {
           await query(migrationSQL)
           console.log('✅ 迁移完成: admin_audit_logs 表已创建')
         }
+      }
+      
+      // 检查并运行图片历史迁移（如果表存在但字段不存在）
+      try {
+        const imagesTableCheck = await query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'images' AND column_name = 'original_data'
+        `)
+        if (imagesTableCheck.rows.length === 0) {
+          // 字段不存在，运行迁移
+          console.log('🔄 检测到需要运行图片历史迁移...')
+          const migrationPath = path.join(__dirname, 'db', 'migrations', '005_images_history.sql')
+          if (fs.existsSync(migrationPath)) {
+            const migrationSQL = fs.readFileSync(migrationPath, 'utf8')
+            await query(migrationSQL)
+            console.log('✅ 迁移完成: images 表已扩展')
+          }
+        }
+      } catch (migrationError) {
+        console.warn('⚠️ 图片历史迁移检查失败（不影响应用启动）:', migrationError.message)
       }
       
       // 启动时清理一次旧图片
