@@ -222,10 +222,9 @@ export default function AdminDashboard() {
 
   const codeToFlag = (code) => {
     if (!code) return ''
-    const regex = /./g
-    return code.replace(regex, (char) =>
+    return code.split('').map((char) =>
       String.fromCodePoint(char.charCodeAt(0) + 127397)
-    )
+    ).join('')
   }
 
   // Client-side filtered & paginated users
@@ -249,8 +248,12 @@ export default function AdminDashboard() {
       (created && new Date(created) >= userDateStart && new Date(created) <= userDateEnd)
     return matchesSearch && matchesRole && matchesTokens && matchesDate
   })
-  const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / userPageSize))
-  const pagedUsers = filteredUsers.slice((userPage - 1) * userPageSize, userPage * userPageSize)
+  const userCount = filteredUsers.length
+  const pages = Math.ceil(userCount / userPageSize)
+  const totalUserPages = Math.max(1, pages)
+  const startIndex = (userPage - 1) * userPageSize
+  const endIndex = userPage * userPageSize
+  const pagedUsers = filteredUsers.slice(startIndex, endIndex)
 
   if (loading) {
     return (
@@ -296,7 +299,6 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black">
       <Header />
-      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 头部 */}
         <div className="glass-dark rounded-xl p-6 mb-6">
@@ -481,7 +483,9 @@ export default function AdminDashboard() {
                   tick={{ fill: '#9CA3AF' }}
                   tickFormatter={(value) => {
                     const date = new Date(value)
-                    return `${date.getMonth() + 1}/${date.getDate()}`
+                    const month = date.getMonth() + 1
+                    const day = date.getDate()
+                    return month + '/' + day
                   }}
                 />
                 <YAxis 
@@ -739,10 +743,17 @@ export default function AdminDashboard() {
                             u.last_login_country ?? u.lastLoginCountry,
                             u.last_login_city ?? u.lastLoginCity,
                             u.last_login_ip ?? u.lastLoginIp,
-                          ].map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(',')
+                          ].map(v => {
+                            const str = (v ?? '').toString()
+                            const quoteChar = String.fromCharCode(34)
+                            const doubleQuote = quoteChar + quoteChar
+                            const escaped = str.split(quoteChar).join(doubleQuote)
+                            const result = quoteChar + escaped + quoteChar
+                            return result
+                          }).join(',')
                         )
                       )
-                      .join('\\n')
+                      .join('\n')
                     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
                     const url = window.URL.createObjectURL(blob)
                     const link = document.createElement('a')
@@ -864,6 +875,7 @@ export default function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
             {/* Pagination */}
             <div className="flex items-center justify-between px-4 py-3">
@@ -890,7 +902,7 @@ export default function AdminDashboard() {
                 >
                   Prev
                 </button>
-                <span className="text-gray-300 text-sm">{userPage} / {totalUserPages}</span>
+                <span className="text-gray-300 text-sm">{userPage} {'/'} {totalUserPages}</span>
                 <button
                   onClick={() => setUserPage(Math.min(totalUserPages, userPage + 1))}
                   className="px-3 py-1 rounded bg-gray-800 text-white disabled:opacity-50"
@@ -1160,11 +1172,11 @@ export default function AdminDashboard() {
                       }
                       try {
                         const token = localStorage.getItem('glowlisting_token')
-                        const resetUrl = `${API_URL}/admin/users/${resetPasswordUser.id}/reset-password`
+                        const resetUrl = [API_URL, 'admin', 'users', resetPasswordUser.id, 'reset-password'].join('/')
                         await axios.post(
                           resetUrl,
                           { newPassword: resetPasswordValue },
-                          { headers: { Authorization: `Bearer ${token}` } }
+                          { headers: { Authorization: 'Bearer ' + token } }
                         )
                         alert(t('adminDashboard.passwordResetSuccess'))
                         setResetPasswordUser(null)
