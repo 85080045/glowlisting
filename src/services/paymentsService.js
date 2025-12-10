@@ -2,12 +2,39 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
+// 创建统一的 axios 实例，使用拦截器自动添加 token
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 })
+
+// 请求拦截器：自动添加 token（与 authService 保持一致）
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('glowlisting_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// 响应拦截器：处理 401 错误
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.error('401 Unauthorized - Token may be invalid or expired')
+      // 不自动清除 token 和重定向，让调用方处理
+    }
+    return Promise.reject(error)
+  }
+)
 
 export const paymentsService = {
   async getConfig() {
@@ -43,21 +70,13 @@ export const paymentsService = {
         tokenPrefix: token.substring(0, 20)
       })
       
-      const requestHeaders = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      }
-      console.log('Request headers:', { ...requestHeaders, Authorization: 'Bearer ***' })
-      
+      // 使用拦截器自动添加 token，不需要手动添加
       const res = await api.post(
         '/payments/create-checkout-session',
         {
           planType,
           successUrl,
           cancelUrl,
-        },
-        {
-          headers: requestHeaders,
         }
       )
       
