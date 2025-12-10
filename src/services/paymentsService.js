@@ -115,15 +115,32 @@ export const paymentsService = {
       console.error('Error status text:', error.response?.statusText)
       console.error('Error response data:', error.response?.data)
       console.error('Request URL:', error.config?.url)
-      console.error('Request headers sent:', error.config?.headers)
+      console.error('Request headers sent:', {
+        ...error.config?.headers,
+        Authorization: error.config?.headers?.Authorization ? 'Bearer ***' : 'MISSING!'
+      })
+      console.error('Full request config:', JSON.stringify({
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL,
+        headers: {
+          ...error.config?.headers,
+          Authorization: error.config?.headers?.Authorization ? 'Bearer ***' : 'MISSING!'
+        }
+      }, null, 2))
       
       // 如果是 401，提供更详细的错误信息
       if (error.response?.status === 401) {
-        console.error('401 Unauthorized - Possible causes:')
-        console.error('1. Token expired or invalid')
-        console.error('2. JWT_SECRET mismatch between frontend and backend')
-        console.error('3. User needs to re-login after JWT_SECRET change')
-        console.error('Current token:', localStorage.getItem('glowlisting_token')?.substring(0, 30) + '...')
+        console.error('=== 401 Unauthorized Analysis ===')
+        console.error('1. Token in localStorage:', localStorage.getItem('glowlisting_token') ? 'Present' : 'Missing')
+        console.error('2. Authorization header in request:', error.config?.headers?.Authorization ? 'Present' : 'MISSING!')
+        console.error('3. Error response:', error.response?.data)
+        console.error('4. Request was sent to:', error.config?.url)
+        
+        if (!error.config?.headers?.Authorization) {
+          console.error('❌ CRITICAL: Authorization header is MISSING in the request!')
+          console.error('This means the header was not sent to the server.')
+        }
       }
       
       // Preserve the original error structure

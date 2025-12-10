@@ -132,10 +132,13 @@ app.use(cors({
 
 // 处理 OPTIONS 预检请求（必须在其他中间件之前）
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*')
+  const origin = req.headers.origin || '*'
+  res.header('Access-Control-Allow-Origin', origin)
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
   res.header('Access-Control-Allow-Credentials', 'true')
+  res.header('Access-Control-Max-Age', '86400')
+  console.log('[CORS] OPTIONS preflight request from:', origin)
   res.sendStatus(200)
 })
 
