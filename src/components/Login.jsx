@@ -327,7 +327,7 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex flex-col">
       {/* 顶部导航栏 */}
       <div className="w-full py-4 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto flex justify-center">
           <Link 
             to="/" 
             className="inline-flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
