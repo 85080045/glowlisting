@@ -123,6 +123,15 @@ function App() {
             <Route path="/help" element={<HelpCenter />} />
             <Route path="/media" element={<MediaInquiry />} />
             <Route path="/investors" element={<InvestorRelations />} />
+            <Route path="/pricing" element={
+              <>
+                <Header />
+                <main className="flex-grow">
+                  <Pricing />
+                </main>
+                <Footer />
+              </>
+            } />
           </Routes>
         </div>
       </AuthProvider>
