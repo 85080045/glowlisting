@@ -62,35 +62,45 @@ export default function Pricing() {
           }
         } catch (err) {
           console.error('Pro checkout error:', err)
+          console.error('Full error object:', JSON.stringify(err, null, 2))
           console.error('Error details:', {
             message: err.message,
             response: err.response?.data,
             status: err.response?.status,
-            statusText: err.response?.statusText
+            statusText: err.response?.statusText,
+            config: err.config
           })
           
           // 如果是 401 错误，提示用户重新登录
           if (err.response?.status === 401) {
             const authError = err.response?.data?.message || err.response?.data?.error || 'Your session has expired. Please login again.'
             alert(authError + '\n\nPlease logout and login again to continue.')
-            // 清除无效的 token
             localStorage.removeItem('glowlisting_token')
-            // 重定向到登录页面
             setTimeout(() => {
               navigate('/login')
             }, 1000)
             return
           }
           
+          // 显示详细的错误信息
           let errorMsg = err.message
           if (err.response?.data?.message) {
             errorMsg = err.response.data.message
           } else if (err.response?.data?.error) {
             errorMsg = err.response.data.error
           }
+          
+          // 如果是网络错误或其他错误，显示更详细的信息
           if (!errorMsg || errorMsg === 'pricing.checkoutError') {
-            errorMsg = t('pricing.checkoutError')
+            errorMsg = t('pricing.checkoutError') || 'Checkout failed, please try again.'
           }
+          
+          // 添加错误类型信息
+          if (err.response?.status) {
+            errorMsg += ` (Status: ${err.response.status})`
+          }
+          
+          console.error('Displaying error to user:', errorMsg)
           alert(errorMsg)
         } finally {
           setLoadingPlan(null)
@@ -128,35 +138,45 @@ export default function Pricing() {
           }
         } catch (err) {
           console.error('Pack checkout error:', err)
+          console.error('Full error object:', JSON.stringify(err, null, 2))
           console.error('Error details:', {
             message: err.message,
             response: err.response?.data,
             status: err.response?.status,
-            statusText: err.response?.statusText
+            statusText: err.response?.statusText,
+            config: err.config
           })
           
           // 如果是 401 错误，提示用户重新登录
           if (err.response?.status === 401) {
             const authError = err.response?.data?.message || err.response?.data?.error || 'Your session has expired. Please login again.'
             alert(authError + '\n\nPlease logout and login again to continue.')
-            // 清除无效的 token
             localStorage.removeItem('glowlisting_token')
-            // 重定向到登录页面
             setTimeout(() => {
               navigate('/login')
             }, 1000)
             return
           }
           
+          // 显示详细的错误信息
           let errorMsg = err.message
           if (err.response?.data?.message) {
             errorMsg = err.response.data.message
           } else if (err.response?.data?.error) {
             errorMsg = err.response.data.error
           }
+          
+          // 如果是网络错误或其他错误，显示更详细的信息
           if (!errorMsg || errorMsg === 'pricing.checkoutError') {
-            errorMsg = t('pricing.checkoutError')
+            errorMsg = t('pricing.checkoutError') || 'Checkout failed, please try again.'
           }
+          
+          // 添加错误类型信息
+          if (err.response?.status) {
+            errorMsg += ` (Status: ${err.response.status})`
+          }
+          
+          console.error('Displaying error to user:', errorMsg)
           alert(errorMsg)
         } finally {
           setLoadingPlan(null)
