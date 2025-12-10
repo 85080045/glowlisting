@@ -799,39 +799,33 @@ app.put('/api/auth/change-password', authMiddleware, async (req, res) => {
 // 获取图片历史记录
 app.get('/api/images/history', authMiddleware, async (req, res) => {
   try {
-    // 这里应该从数据库获取，目前使用内存存储作为示例
-    // 实际应该存储到数据库，包含：imageId, userId, thumbnail, filename, createdAt
-    const imageHistoryDir = path.join(__dirname, 'uploads')
-    const images = []
-    
-    // 读取上传目录中的文件（简化实现，实际应该从数据库查询）
-    if (fs.existsSync(imageHistoryDir)) {
-      const files = fs.readdirSync(imageHistoryDir)
-      const userFiles = files.filter(file => file.startsWith(`hd-`) && file.endsWith('.jpg'))
-      
-      for (const file of userFiles) {
-        const filePath = path.join(imageHistoryDir, file)
-        const stats = fs.statSync(filePath)
-        const imageId = file.replace('hd-', '').replace('.jpg', '')
-        
-        // 生成缩略图
-        const imageBuffer = fs.readFileSync(filePath)
-        const thumbnail = await sharp(imageBuffer)
-          .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 80 })
-          .toBuffer()
-        
-        images.push({
-          id: imageId,
-          filename: `glowlisting-enhanced-${imageId}.jpg`,
-          thumbnail: `data:image/jpeg;base64,${thumbnail.toString('base64')}`,
-          createdAt: stats.birthtime.toISOString(),
-        })
-      }
+    if (!useDb) {
+      // 如果没有数据库，返回空数组
+      return res.json({ success: true, images: [] })
     }
     
-    // 按创建时间倒序排列
-    images.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    // 从数据库获取用户的图片历史
+    const result = await query(
+      `SELECT id, filename, original_filename, thumbnail_data, enhanced_data, original_data, 
+              file_size, mime_type, created_at
+       FROM images 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT 100`,
+      [req.userId]
+    )
+    
+    const images = result.rows.map(row => ({
+      id: row.id,
+      filename: row.filename || row.original_filename || 'image.jpg',
+      originalFilename: row.original_filename,
+      thumbnail: row.thumbnail_data || null,
+      enhanced: row.enhanced_data || null,
+      original: row.original_data || null,
+      fileSize: row.file_size ? Number(row.file_size) : 0,
+      mimeType: row.mime_type || 'image/jpeg',
+      createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    }))
     
     res.json({ success: true, images })
   } catch (error) {
@@ -840,17 +834,73 @@ app.get('/api/images/history', authMiddleware, async (req, res) => {
   }
 })
 
+// 获取单张图片详情（用于再次编辑/下载）
+app.get('/api/images/:imageId', authMiddleware, async (req, res) => {
+  try {
+    if (!useDb) {
+      return res.status(404).json({ error: 'Image not found' })
+    }
+    
+    const { imageId } = req.params
+    const result = await query(
+      `SELECT id, filename, original_filename, thumbnail_data, enhanced_data, original_data, 
+              file_size, mime_type, created_at
+       FROM images 
+       WHERE id = $1 AND user_id = $2`,
+      [imageId, req.userId]
+    )
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Image not found' })
+    }
+    
+    const row = result.rows[0]
+    res.json({
+      success: true,
+      image: {
+        id: row.id,
+        filename: row.filename || row.original_filename || 'image.jpg',
+        originalFilename: row.original_filename,
+        thumbnail: row.thumbnail_data || null,
+        enhanced: row.enhanced_data || null,
+        original: row.original_data || null,
+        fileSize: row.file_size ? Number(row.file_size) : 0,
+        mimeType: row.mime_type || 'image/jpeg',
+        createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+      }
+    })
+  } catch (error) {
+    console.error('Get image error:', error)
+    res.status(500).json({ error: 'Failed to fetch image' })
+  }
+})
+
 // 删除图片
 app.delete('/api/images/:imageId', authMiddleware, async (req, res) => {
   try {
     const { imageId } = req.params
-    const imagePath = path.join(__dirname, 'uploads', `hd-${imageId}.jpg`)
     
-    if (fs.existsSync(imagePath)) {
-      fs.unlinkSync(imagePath)
+    if (useDb) {
+      // 从数据库删除
+      const result = await query(
+        `DELETE FROM images WHERE id = $1 AND user_id = $2 RETURNING id`,
+        [imageId, req.userId]
+      )
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Image not found' })
+      }
+      
       res.json({ success: true, message: 'Image deleted successfully' })
     } else {
-      res.status(404).json({ error: 'Image not found' })
+      // 从文件系统删除（fallback）
+      const imagePath = path.join(__dirname, 'uploads', `hd-${imageId}.jpg`)
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath)
+        res.json({ success: true, message: 'Image deleted successfully' })
+      } else {
+        res.status(404).json({ error: 'Image not found' })
+      }
     }
   } catch (error) {
     console.error('Delete image error:', error)
@@ -1917,7 +1967,57 @@ B. 室外照片 (Facade/Garden)：
         if (userId) {
           // 消耗一次（1 token = 1 image）
           remainingTokens = await decrementUserTokensSafe(userId, 'process')
-          await recordTokenUsageSafe(userId, 'process')
+          await recordTokenUsageSafe(userId, 'process', imageId)
+          
+          // 保存图片到数据库（永久保存历史）
+          if (useDb) {
+            try {
+              // 生成缩略图（用于历史记录列表显示）
+              const thumbnailBuffer = await sharp(enhancedImageBuffer)
+                .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
+                .jpeg({ quality: 80 })
+                .toBuffer()
+              
+              const originalBase64 = base64Image // 原图 base64
+              const enhancedBase64 = enhancedImageBase64 // 增强图 base64
+              const thumbnailBase64 = thumbnailBuffer.toString('base64') // 缩略图 base64
+              
+              // 如果是重新生成，更新现有记录；否则创建新记录
+              if (isRegenerate && regenerateInfo.originalImageId) {
+                await query(
+                  `UPDATE images 
+                   SET enhanced_data = $1, thumbnail_data = $2, updated_at = NOW()
+                   WHERE id = $3 AND user_id = $4`,
+                  [`data:image/jpeg;base64,${enhancedBase64}`, `data:image/jpeg;base64,${thumbnailBase64}`, imageId, userId]
+                )
+              } else {
+                // 生成 UUID 作为数据库 ID
+                const dbImageId = crypto.randomUUID()
+                await query(
+                  `INSERT INTO images (id, user_id, filename, original_filename, original_data, enhanced_data, thumbnail_data, file_size, mime_type, hd_path, thumbnail_path)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                  [
+                    dbImageId,
+                    userId,
+                    `glowlisting-enhanced-${imageId}.jpg`,
+                    req.file?.originalname || 'uploaded-image.jpg',
+                    `data:${mimeType};base64,${originalBase64}`,
+                    `data:image/jpeg;base64,${enhancedBase64}`,
+                    `data:image/jpeg;base64,${thumbnailBase64}`,
+                    req.file?.size || 0,
+                    mimeType,
+                    `hd-${imageId}.jpg`,
+                    `thumb-${imageId}.jpg`
+                  ]
+                )
+                // 更新 imageId 为数据库 UUID，用于后续查询
+                imageId = dbImageId
+              }
+            } catch (dbError) {
+              console.error('Failed to save image to database:', dbError)
+              // 不阻止响应，即使数据库保存失败也继续
+            }
+          }
         }
 
         // 设置响应头包含剩余token
