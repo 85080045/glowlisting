@@ -1851,7 +1851,17 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
       return res.status(400).json({ error: 'User email not found', message: 'Please update your email address in your profile.' })
     }
 
-    console.log('Creating checkout session:', { planType, userId, customerEmail, origin, successUrl, cancelUrl })
+    console.log('Creating checkout session:', { 
+      planType, 
+      userId, 
+      customerEmail, 
+      origin, 
+      successUrl, 
+      cancelUrl,
+      usingPriceId: planType === 'pro' ? !!PLAN_PRO.priceId : !!PACK_ONETIME.priceId,
+      proPriceId: PLAN_PRO.priceId || 'not set',
+      packPriceId: PACK_ONETIME.priceId || 'not set'
+    })
 
     let sessionPayload = {
       client_reference_id: String(userId),
@@ -1867,6 +1877,7 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
     if (planType === 'pro') {
       // 优先使用 Stripe Dashboard 中创建的 Price ID
       if (PLAN_PRO.priceId) {
+        console.log('Using Stripe Price ID for Pro plan:', PLAN_PRO.priceId)
         sessionPayload = {
           ...sessionPayload,
           mode: 'subscription',
@@ -1881,6 +1892,7 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
           ],
         }
       } else {
+        console.log('Using price_data for Pro plan (Price ID not set)')
         // 使用 price_data 动态创建（需要确保格式正确）
         sessionPayload = {
           ...sessionPayload,
@@ -1909,6 +1921,7 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
     } else if (planType === 'pack') {
       // 优先使用 Stripe Dashboard 中创建的 Price ID
       if (PACK_ONETIME.priceId) {
+        console.log('Using Stripe Price ID for Pack plan:', PACK_ONETIME.priceId)
         sessionPayload = {
           ...sessionPayload,
           mode: 'payment',
