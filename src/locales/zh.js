@@ -483,6 +483,9 @@ export const zh = {
     buyPack: '购买图片包',
     contactSales: '联系我们',
     checkoutError: '支付失败，请重试。',
+    needCustom: '需要定制方案？',
+    contactTeam: '联系我们的团队',
+    loading: '处理中...',
     features: {
       freeImages: '免费增强最多 5 张图片',
       freeNoCard: '无需信用卡',

@@ -483,6 +483,9 @@ export const en = {
     buyPack: 'Buy Pack',
     contactSales: 'Contact Us',
     checkoutError: 'Checkout failed, please try again.',
+    needCustom: 'Need a custom plan?',
+    contactTeam: 'Contact Our Team',
+    loading: 'Processing...',
     features: {
       freeImages: 'Up to 5 images free',
       freeNoCard: 'No credit card required',

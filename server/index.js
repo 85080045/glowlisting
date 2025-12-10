@@ -88,21 +88,25 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
 
 // Stripe plan constants
+// 如果设置了环境变量 STRIPE_PRICE_ID_PRO 和 STRIPE_PRICE_ID_PACK，将使用这些 Price ID
+// 否则将使用 price_data 动态创建价格
 const PLAN_PRO = {
   id: 'glowlisting_pro',
   name: 'GlowListing Pro',
-  amount: 2900, // cents
+  amount: 2900, // cents ($29.00)
   currency: 'usd',
   interval: 'month',
   imagesPerMonth: 100,
+  priceId: process.env.STRIPE_PRICE_ID_PRO, // 可选：Stripe Dashboard 中的 Price ID
 }
 
 const PACK_ONETIME = {
   id: 'one_time_photo_pack',
   name: 'One-Time Photo Pack',
-  amount: 2900, // cents
+  amount: 2900, // cents ($29.00)
   currency: 'usd',
   images: 25,
+  priceId: process.env.STRIPE_PRICE_ID_PACK, // 可选：Stripe Dashboard 中的 Price ID
 }
 
 // 存储每张原始图片的重新生成次数（基于图片hash）
@@ -1861,47 +1865,107 @@ app.post('/api/payments/create-checkout-session', authMiddleware, async (req, re
     }
 
     if (planType === 'pro') {
-      sessionPayload = {
-        ...sessionPayload,
-        mode: 'subscription',
-        subscription_data: {
-          metadata: { userId: String(userId), planType },
-        },
-        line_items: [
-          {
-            price_data: {
-              currency: PLAN_PRO.currency,
-              product_data: { name: PLAN_PRO.name },
-              unit_amount: PLAN_PRO.amount,
-              recurring: { interval: PLAN_PRO.interval },
-            },
-            quantity: 1,
+      // 优先使用 Stripe Dashboard 中创建的 Price ID
+      if (PLAN_PRO.priceId) {
+        sessionPayload = {
+          ...sessionPayload,
+          mode: 'subscription',
+          subscription_data: {
+            metadata: { userId: String(userId), planType },
           },
-        ],
+          line_items: [
+            {
+              price: PLAN_PRO.priceId,
+              quantity: 1,
+            },
+          ],
+        }
+      } else {
+        // 使用 price_data 动态创建（需要确保格式正确）
+        sessionPayload = {
+          ...sessionPayload,
+          mode: 'subscription',
+          subscription_data: {
+            metadata: { userId: String(userId), planType },
+          },
+          line_items: [
+            {
+              price_data: {
+                currency: PLAN_PRO.currency,
+                product_data: { 
+                  name: PLAN_PRO.name,
+                  description: `${PLAN_PRO.imagesPerMonth} images per month`,
+                },
+                unit_amount: PLAN_PRO.amount,
+                recurring: { 
+                  interval: PLAN_PRO.interval,
+                },
+              },
+              quantity: 1,
+            },
+          ],
+        }
       }
     } else if (planType === 'pack') {
-      sessionPayload = {
-        ...sessionPayload,
-        mode: 'payment',
-        payment_intent_data: {
-          metadata: { userId: String(userId), planType },
-        },
-        line_items: [
-          {
-            price_data: {
-              currency: PACK_ONETIME.currency,
-              product_data: { name: PACK_ONETIME.name },
-              unit_amount: PACK_ONETIME.amount,
-            },
-            quantity: 1,
+      // 优先使用 Stripe Dashboard 中创建的 Price ID
+      if (PACK_ONETIME.priceId) {
+        sessionPayload = {
+          ...sessionPayload,
+          mode: 'payment',
+          payment_intent_data: {
+            metadata: { userId: String(userId), planType },
           },
-        ],
+          line_items: [
+            {
+              price: PACK_ONETIME.priceId,
+              quantity: 1,
+            },
+          ],
+        }
+      } else {
+        // 使用 price_data 动态创建
+        sessionPayload = {
+          ...sessionPayload,
+          mode: 'payment',
+          payment_intent_data: {
+            metadata: { userId: String(userId), planType },
+          },
+          line_items: [
+            {
+              price_data: {
+                currency: PACK_ONETIME.currency,
+                product_data: { 
+                  name: PACK_ONETIME.name,
+                  description: `${PACK_ONETIME.images} images`,
+                },
+                unit_amount: PACK_ONETIME.amount,
+              },
+              quantity: 1,
+            },
+          ],
+        }
       }
     } else {
       return res.status(400).json({ error: 'Invalid plan type', message: `Plan type "${planType}" is not supported. Please select a valid plan.` })
     }
 
     console.log('Stripe session payload:', JSON.stringify(sessionPayload, null, 2))
+    console.log('Stripe instance check:', {
+      hasStripe: !!stripe,
+      hasSecretKey: !!STRIPE_SECRET_KEY,
+      secretKeyPrefix: STRIPE_SECRET_KEY ? STRIPE_SECRET_KEY.substring(0, 7) + '...' : 'missing'
+    })
+    
+    // 验证 Stripe 配置
+    if (!stripe) {
+      console.error('Stripe instance is null')
+      return res.status(500).json({ 
+        error: 'Stripe not initialized', 
+        message: 'Stripe payment service is not available. Please contact support.',
+        details: 'STRIPE_SECRET_KEY is not set or invalid'
+      })
+    }
+    
     const session = await stripe.checkout.sessions.create(sessionPayload)
     console.log('Stripe session created:', { id: session.id, url: session.url })
 
