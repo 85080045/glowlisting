@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { Upload, Loader2, Download, X, Image as ImageIcon, AlertTriangle, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Upload, Loader2, Download, X, Image as ImageIcon, AlertTriangle, Maximize2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock3, RefreshCw } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { enhanceImage, downloadHDImage } from '../services/enhanceService'
@@ -24,6 +24,11 @@ export default function UploadSection({
   const [isConvertingHeic, setIsConvertingHeic] = useState(false) // HEIC 转换状态
   const [regenerateCount, setRegenerateCount] = useState(0) // 当前重新生成次数
   const [remainingRegenerates, setRemainingRegenerates] = useState(3) // 剩余重新生成次数
+  // 批量任务队列
+  const [tasks, setTasks] = useState([]) // {id,name,dataUrl,status,enhanced,imageId,errorMsg}
+  const [activeTaskId, setActiveTaskId] = useState(null)
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false)
+  const [isQueuePaused, setIsQueuePaused] = useState(false)
 
   // 错误消息映射函数：将英文错误消息转换为翻译键
   const getTranslatedError = (errorMessage) => {
@@ -49,135 +54,83 @@ export default function UploadSection({
     return errorMessage
   }
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
+  const readFileAsDataUrl = (file) => {
+    return new Promise((resolve, reject) => {
+      const fileExt = file.name.toLowerCase()
+      const isImage = file.type.startsWith('image/') || 
+                      fileExt.endsWith('.heic') || 
+                      fileExt.endsWith('.heif')
+      if (!isImage) return reject(new Error(t('upload.errorImageOnly')))
+      if (file.size > 10 * 1024 * 1024) return reject(new Error(t('upload.errorSize')))
 
-    // 检查文件类型，支持 HEIC/HEIF 格式
-    const fileExt = file.name.toLowerCase()
-    const isImage = file.type.startsWith('image/') || 
-                    fileExt.endsWith('.heic') || 
-                    fileExt.endsWith('.heif')
-    
-    if (!isImage) {
-      setError(t('upload.errorImageOnly'))
-      return
-    }
+      const isHeic = fileExt.endsWith('.heic') || fileExt.endsWith('.heif') || 
+                     file.type === 'image/heic' || file.type === 'image/heif'
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError(t('upload.errorSize'))
-      return
-    }
+      const readBlob = (blob) => {
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          const result = ev.target.result
+          if (result && result.startsWith('data:')) {
+            resolve(result)
+          } else {
+            reject(new Error(t('upload.errorImageFormat')))
+          }
+        }
+        reader.onerror = () => reject(new Error(t('upload.errorImageRead')))
+        reader.onabort = () => reject(new Error(t('upload.errorImageAbort')))
+        reader.readAsDataURL(blob)
+      }
 
+      if (!isHeic) {
+        return readBlob(file)
+      }
+
+      setIsConvertingHeic(true)
+      heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: 0.9
+      }).then((convertedBlob) => {
+        const jpegBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob
+        readBlob(jpegBlob)
+        setIsConvertingHeic(false)
+      }).catch((err) => {
+        setIsConvertingHeic(false)
+        reject(new Error(t('upload.errorHeicConvert') + `: ${err.message}`))
+      })
+    })
+  }
+
+  const genId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
+
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
     setError(null)
-    
-    // 检查是否是 HEIC/HEIF 格式（浏览器不支持直接显示）
-    const isHeic = fileExt.endsWith('.heic') || fileExt.endsWith('.heif') || 
-                   file.type === 'image/heic' || file.type === 'image/heif'
-    
-    if (isHeic) {
-      // HEIC 格式在前端转换为 JPG 用于预览显示
-      console.log('HEIC file detected, converting to JPG for preview...')
-      setError(null)
-      setIsConvertingHeic(true) // 开始转换，显示进度条
-      
+    const newTasks = []
+    for (const file of files) {
       try {
-        // 使用 heic2any 转换为 JPG
-        heic2any({
-          blob: file,
-          toType: 'image/jpeg',
-          quality: 0.9
-        }).then((convertedBlob) => {
-          // heic2any 返回的是数组，取第一个
-          const jpegBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob
-          
-          // 将转换后的 JPG 转换为 data URL 用于显示
-          const reader = new FileReader()
-          reader.onload = (e) => {
-            const result = e.target.result
-            console.log('✅ HEIC converted to JPG successfully')
-            if (result && result.startsWith('data:')) {
-              // 显示转换后的 JPG
-              setUploadedImage(result)
-              setEnhancedImage(null)
-              setImageId(null)
-              setShowCompare(false)
-              setError(null)
-              setIsConvertingHeic(false) // 转换完成，隐藏进度条
-            } else {
-              setError(t('upload.errorHeicFormat'))
-              setIsConvertingHeic(false)
-            }
-          }
-          reader.onerror = () => {
-            setError(t('upload.errorHeicRead'))
-            setIsConvertingHeic(false)
-          }
-          reader.readAsDataURL(jpegBlob)
-        }).catch((err) => {
-          console.error('HEIC conversion error:', err)
-          setError(t('upload.errorHeicConvert'))
-          setIsConvertingHeic(false) // 转换失败，隐藏进度条
+        const dataUrl = await readFileAsDataUrl(file)
+        newTasks.push({
+          id: genId(),
+          name: file.name,
+          dataUrl,
+          status: 'queued',
+          enhanced: null,
+          imageId: null,
+          errorMsg: null,
         })
       } catch (err) {
-        console.error('HEIC conversion setup error:', err)
-        setError(t('upload.errorHeicInit'))
-        setIsConvertingHeic(false)
-      }
-      return
-    }
-
-    // 对于其他图片格式，验证图片是否有效
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const result = e.target.result
-      console.log('File loaded successfully')
-      console.log('File name:', file.name)
-      console.log('File type:', file.type)
-      console.log('File size:', file.size)
-      console.log('Data URL length:', result?.length)
-      console.log('Data URL starts with:', result?.substring(0, 50))
-      
-      if (result && result.startsWith('data:')) {
-        // 验证 data URL 格式并测试图片是否能加载
-        const testImg = new Image()
-        testImg.onload = () => {
-          console.log('✅ Image validation successful')
-          setUploadedImage(result)
-          setEnhancedImage(null)
-          setImageId(null)
-          setShowCompare(false)
-          setError(null)
-          setRegenerateCount(0)
-          setRemainingRegenerates(3)
-        }
-        testImg.onerror = (err) => {
-          console.error('❌ Image validation failed')
-          console.error('Error details:', err)
-          // 即使验证失败，也尝试设置图片（某些浏览器可能验证过于严格）
-          // 但添加警告
-          console.warn('Image validation failed, but will try to display anyway')
-          setUploadedImage(result)
-          setEnhancedImage(null)
-          setImageId(null)
-          setShowCompare(false)
-          // 不设置错误，让图片尝试加载，如果失败会在 onError 中处理
-        }
-        testImg.src = result
-      } else {
-        console.error('Invalid data URL format')
-        setError(t('upload.errorImageFormat'))
+        setError(err.message)
       }
     }
-    reader.onerror = (error) => {
-      console.error('FileReader error:', error)
-      setError(t('upload.errorImageRead'))
+    if (newTasks.length) {
+      setTasks(prev => [...prev, ...newTasks])
+      setUploadedImage(newTasks[0].dataUrl)
+      setEnhancedImage(null)
+      setImageId(null)
+      setIsBatchProcessing(true)
     }
-    reader.onabort = () => {
-      console.error('FileReader aborted')
-      setError(t('upload.errorImageAbort'))
-    }
-    reader.readAsDataURL(file)
   }
 
   const handleEnhance = async (isRegenerate = false) => {
@@ -230,6 +183,63 @@ export default function UploadSection({
       console.error('Enhance error:', err)
     } finally {
       setIsProcessing(false)
+    }
+  }
+
+  // 队列顺序处理
+  useEffect(() => {
+    if (!isBatchProcessing || isQueuePaused) return
+    // 如果已有进行中的任务，等待
+    if (isProcessing) return
+    const next = tasks.find(t => t.status === 'queued')
+    if (!next) {
+      setIsBatchProcessing(false)
+      setActiveTaskId(null)
+      return
+    }
+    setActiveTaskId(next.id)
+    const run = async () => {
+      setTasks(prev => prev.map(t => t.id === next.id ? { ...t, status: 'processing', errorMsg: null } : t))
+      setIsProcessing(true)
+      setUploadedImage(next.dataUrl)
+      setEnhancedImage(null)
+      setImageId(null)
+      try {
+        const result = await enhanceImage(next.dataUrl, false)
+        setEnhancedImage(result.image)
+        setImageId(result.imageId)
+        if (result.tokensRemaining !== null && result.tokensRemaining !== undefined) {
+          updateTokens(result.tokensRemaining)
+        }
+        if (result.regenerateCount !== undefined) setRegenerateCount(result.regenerateCount)
+        if (result.remainingRegenerates !== undefined) setRemainingRegenerates(result.remainingRegenerates)
+        setTasks(prev => prev.map(t => t.id === next.id ? { ...t, status: 'done', enhanced: result.image, imageId: result.imageId } : t))
+      } catch (err) {
+        console.error('Batch enhance error:', err)
+        setTasks(prev => prev.map(t => t.id === next.id ? { ...t, status: 'error', errorMsg: err.message || 'Failed' } : t))
+        setError(getTranslatedError(err.message || 'Enhance failed'))
+      } finally {
+        setIsProcessing(false)
+      }
+    }
+    run()
+  }, [isBatchProcessing, isQueuePaused, tasks, isProcessing])
+
+  const retryTask = (taskId) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'queued', errorMsg: null } : t))
+    setIsBatchProcessing(true)
+    setIsQueuePaused(false)
+  }
+
+  const downloadTask = async (task) => {
+    if (!task?.imageId) return
+    setIsDownloading(true)
+    try {
+      await downloadHDImage(task.imageId)
+    } catch (err) {
+      setError(getTranslatedError(err.message || 'Download failed'))
+    } finally {
+      setIsDownloading(false)
     }
   }
 
@@ -358,6 +368,7 @@ export default function UploadSection({
                   ref={fileInputRef}
                   type="file"
                   accept="image/*,.heic,.heif"
+                  multiple
                   onChange={handleFileSelect}
                   className="hidden"
                 />
@@ -566,6 +577,77 @@ export default function UploadSection({
             )}
           </div>
         </div>
+
+      {/* 队列列表 */}
+      {tasks.length > 0 && (
+        <div className="card-glass mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">{t('upload.queue') || 'Batch queue'}</h3>
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+              <span>{t('upload.queueTotal') || 'Total'}: {tasks.length}</span>
+              <span>• {t('upload.queueProcessing') || 'Processing'}: {tasks.filter(t => t.status === 'processing').length}</span>
+              <span>• {t('upload.queueDone') || 'Done'}: {tasks.filter(t => t.status === 'done').length}</span>
+              <span>• {t('upload.queueError') || 'Failed'}: {tasks.filter(t => t.status === 'error').length}</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {tasks.map(task => {
+              const isActive = task.id === activeTaskId
+              return (
+                <div key={task.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-900/40 border border-gray-800 rounded-lg px-3 py-3">
+                  <div className="flex items-center gap-3">
+                    {task.status === 'processing' && <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />}
+                    {task.status === 'queued' && <Clock3 className="h-4 w-4 text-gray-400" />}
+                    {task.status === 'done' && <CheckCircle2 className="h-4 w-4 text-green-400" />}
+                    {task.status === 'error' && <XCircle className="h-4 w-4 text-red-400" />}
+                    <div>
+                      <p className="text-sm text-white">{task.name}</p>
+                      <p className="text-xs text-gray-400">
+                        {task.status === 'queued' && (t('upload.statusQueued') || 'Queued')}
+                        {task.status === 'processing' && (t('upload.statusProcessing') || 'Processing')}
+                        {task.status === 'done' && (t('upload.statusDone') || 'Done')}
+                        {task.status === 'error' && (task.errorMsg || (t('upload.statusError') || 'Failed'))}
+                      </p>
+                    </div>
+                    {isActive && <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-200 rounded-full">{t('upload.currentTask') || 'Current'}</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="btn-secondary px-3 py-1 text-xs"
+                      onClick={() => {
+                        setUploadedImage(task.dataUrl)
+                        setEnhancedImage(task.enhanced || null)
+                        setImageId(task.imageId || null)
+                      }}
+                    >
+                      {t('upload.view') || 'View'}
+                    </button>
+                    {task.status === 'done' && task.imageId && (
+                      <button
+                        className="btn-primary px-3 py-1 text-xs flex items-center gap-1"
+                        onClick={() => downloadTask(task)}
+                        disabled={isDownloading}
+                      >
+                        <Download className="h-3 w-3" />
+                        {t('upload.downloadResult') || 'Download'}
+                      </button>
+                    )}
+                    {task.status === 'error' && (
+                      <button
+                        className="btn-secondary px-3 py-1 text-xs flex items-center gap-1"
+                        onClick={() => retryTask(task.id)}
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        {t('upload.retry') || 'Retry'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
         {enhancedImage && (
           <div className="mt-6 md:mt-8 text-center relative z-10">
