@@ -288,6 +288,8 @@ export const en = {
     noTokens: 'You have no images remaining. Please upgrade to continue.',
     storageWarning: '⚠️ Important: Enhanced images are only stored for 30 minutes. Please download them promptly.',
     storageWarningTitle: 'Storage Notice',
+    tokensRemaining: 'Remaining credits',
+    tokensTip: 'Each processed image consumes credits. If insufficient, please upgrade or recharge.',
     compare: 'Compare',
     compareTitle: 'Before & After Comparison',
     compareOriginal: 'Original',

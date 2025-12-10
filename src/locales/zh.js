@@ -288,6 +288,8 @@ export const zh = {
     noTokens: '您的可用图片次数已用完，请升级以继续使用。',
     storageWarning: '⚠️ 重要提示：增强后的图片仅保存 30 分钟，请及时下载。',
     storageWarningTitle: '存储提示',
+    tokensRemaining: '剩余额度',
+    tokensTip: '每次处理会消耗额度，如不足请升级或充值。',
     compare: '对比',
     compareTitle: '前后对比',
     compareOriginal: '原图',
