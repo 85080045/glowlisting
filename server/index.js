@@ -121,8 +121,14 @@ const MAX_REGENERATE_COUNT = 3
 const verificationCodes = new Map()
 const VERIFICATION_CODE_EXPIRY = 10 * 60 * 1000 // 10分钟
 
-// 中间件
-app.use(cors())
+// 中间件 - CORS 配置，确保允许 Authorization header
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  exposedHeaders: ['x-tokens-remaining']
+}))
 
 // 对 Stripe webhook 需要保留原始请求体，其余使用 JSON
 app.use((req, res, next) => {

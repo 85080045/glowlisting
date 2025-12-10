@@ -45,14 +45,22 @@ tokens.set('999', 9999) // 超级管理员有9999个token
 
 export const authMiddleware = (req, res, next) => {
   try {
+    // 处理 OPTIONS 预检请求
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end()
+    }
+    
     const authHeader = req.headers.authorization
     const requestPath = req.path
     const requestMethod = req.method
     
-    console.log(`[Auth] ${requestMethod} ${requestPath} - Authorization header:`, authHeader ? 'Present' : 'Missing')
+    console.log(`[Auth] ${requestMethod} ${requestPath}`)
+    console.log(`[Auth] All headers:`, Object.keys(req.headers))
+    console.log(`[Auth] Authorization header:`, authHeader ? `Present (${authHeader.substring(0, 20)}...)` : 'Missing')
     
     if (!authHeader) {
       console.error(`[Auth] ${requestMethod} ${requestPath} - No authorization header`)
+      console.error(`[Auth] Request headers received:`, JSON.stringify(req.headers, null, 2))
       return res.status(401).json({ 
         error: 'No token provided', 
         message: 'Please login to continue',
@@ -63,10 +71,12 @@ export const authMiddleware = (req, res, next) => {
     const parts = authHeader.split(' ')
     if (parts.length !== 2 || parts[0] !== 'Bearer') {
       console.error(`[Auth] ${requestMethod} ${requestPath} - Invalid authorization format`)
+      console.error(`[Auth] Authorization header value:`, authHeader)
       return res.status(401).json({ 
         error: 'Invalid authorization format', 
         message: 'Authorization header must be in format: Bearer <token>',
-        path: requestPath
+        path: requestPath,
+        receivedFormat: authHeader.substring(0, 20)
       })
     }
 
@@ -84,15 +94,16 @@ export const authMiddleware = (req, res, next) => {
     console.log(`[Auth] ${requestMethod} ${requestPath} - Verifying token`)
     console.log(`[Auth] JWT_SECRET exists: ${!!JWT_SECRET}, length: ${JWT_SECRET?.length || 0}`)
     console.log(`[Auth] Token preview: ${token.substring(0, 20)}...`)
+    console.log(`[Auth] Token length: ${token.length}`)
     
     const decoded = jwt.verify(token, JWT_SECRET)
-    console.log(`[Auth] ${requestMethod} ${requestPath} - Token verified successfully, userId: ${decoded.userId}`)
+    console.log(`[Auth] ✅ ${requestMethod} ${requestPath} - Token verified successfully, userId: ${decoded.userId}`)
     req.userId = decoded.userId
     next()
   } catch (error) {
-    console.error(`[Auth] Token verification failed for ${req.method} ${req.path}:`, error.message)
+    console.error(`[Auth] ❌ Token verification failed for ${req.method} ${req.path}:`, error.message)
     console.error(`[Auth] Error type: ${error.name}`)
-    console.error(`[Auth] Error stack:`, error.stack)
+    console.error(`[Auth] Full error:`, error)
     
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ 
