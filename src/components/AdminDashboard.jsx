@@ -123,8 +123,14 @@ export default function AdminDashboard() {
       const [ordersRes, usageRes, auditRes, advancedRes] = await Promise.all([
         axios.get(`${API_URL}/admin/orders`, { headers: { Authorization: `Bearer ${token}` }, params: listParams }),
         axios.get(`${API_URL}/admin/usage`, { headers: { Authorization: `Bearer ${token}` }, params: { ...listParams, action: usageAction || undefined } }),
-        axios.get(`${API_URL}/admin/audit-logs`, { headers: { Authorization: `Bearer ${token}` }, params: { limit: 100 } }).catch(() => ({ data: { logs: [] } })),
-        axios.get(`${API_URL}/admin/advanced-stats`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { stats: null } }))
+        axios.get(`${API_URL}/admin/audit-logs`, { headers: { Authorization: `Bearer ${token}` }, params: { limit: 100 } }).catch((err) => {
+          console.warn('Failed to fetch audit logs:', err)
+          return { data: { logs: [] } }
+        }),
+        axios.get(`${API_URL}/admin/advanced-stats`, { headers: { Authorization: `Bearer ${token}` } }).catch((err) => {
+          console.warn('Failed to fetch advanced stats:', err)
+          return { data: { stats: null } }
+        })
       ])
       setOrders(ordersRes.data.orders || [])
       setUsage(usageRes.data.usage || [])

@@ -16,20 +16,20 @@ console.error = (...args) => {
 }
 
 // 过滤网络请求中的 hCaptcha 401 错误
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && window.fetch) {
   const originalFetch = window.fetch
   window.fetch = async (...args) => {
     try {
       const response = await originalFetch(...args)
       // 如果是 hCaptcha 的 401 错误，不记录到控制台
-      if (response.url && response.url.includes('hcaptcha.com') && response.status === 401) {
+      if (response && response.url && response.url.includes('hcaptcha.com') && response.status === 401) {
         // 静默处理，不影响功能
         return response
       }
       return response
     } catch (error) {
       // 如果是 hCaptcha 相关的错误，静默处理
-      if (error.message && error.message.includes('hcaptcha')) {
+      if (error && error.message && error.message.includes('hcaptcha')) {
         return Promise.reject(error)
       }
       throw error
