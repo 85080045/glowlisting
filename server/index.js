@@ -81,6 +81,26 @@ const deleteUserSafe = async (id) => useDb ? await deleteUserAsync(id) : deleteU
 const toggleUserAdminSafe = async (id) => useDb ? await toggleUserAdminAsync(id) : toggleUserAdmin(id)
 const addTokensToUserSafe = async (id, amount) => useDb ? await addTokensToUserAsync(id, amount) : addTokensToUser(id, amount)
 const getChartDataSafe = async (s, e) => useDb ? await getChartDataAsync(s, e) : getChartData(s, e)
+
+// 审计日志辅助函数
+const logAdminAction = async (adminUserId, action, targetUserId = null, details = null, req = null) => {
+  if (!useDb) return // 只在有数据库时记录
+  
+  try {
+    const ipAddress = req?.headers['x-forwarded-for']?.split(',')[0]?.trim() || req?.socket?.remoteAddress || null
+    const userAgent = req?.headers['user-agent'] || null
+    
+    await query(
+      `INSERT INTO admin_audit_logs (admin_user_id, action, target_user_id, details, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [adminUserId, action, targetUserId, details ? JSON.stringify(details) : null, ipAddress, userAgent]
+    )
+  } catch (error) {
+    console.error('Failed to log admin action:', error)
+    // 不抛出错误，避免影响主要功能
+  }
+}
+
 const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
@@ -1006,6 +1026,114 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) =>
   }
 })
 
+// Admin 高级统计（留存率、LTV等）
+app.get('/api/admin/advanced-stats', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.json({ success: true, stats: {} })
+    
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const last7Days = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const last30Days = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const last90Days = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
+    
+    // 日活跃用户 (DAU) - 过去7天平均
+    const dauResult = await query(`
+      SELECT COUNT(DISTINCT user_id) as count, DATE(created_at) as date
+      FROM token_usage
+      WHERE created_at >= $1
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+      LIMIT 7
+    `, [last7Days])
+    const dauValues = dauResult.rows.map(r => Number(r.count))
+    const avgDAU = dauValues.length > 0 ? dauValues.reduce((a, b) => a + b, 0) / dauValues.length : 0
+    
+    // 月活跃用户 (MAU) - 过去30天
+    const mauResult = await query(`
+      SELECT COUNT(DISTINCT user_id) as count
+      FROM token_usage
+      WHERE created_at >= $1
+    `, [last30Days])
+    const mau = Number(mauResult.rows[0]?.count || 0)
+    
+    // 用户留存率 (7日、30日)
+    const newUsers7DaysAgo = await query(`
+      SELECT COUNT(*) as count
+      FROM users
+      WHERE created_at BETWEEN $1 AND $2
+    `, [new Date(last7Days.getTime() - 7 * 24 * 60 * 60 * 1000), last7Days])
+    const newUsers7DaysAgoCount = Number(newUsers7DaysAgo.rows[0]?.count || 0)
+    
+    const retained7Days = await query(`
+      SELECT COUNT(DISTINCT u.id) as count
+      FROM users u
+      INNER JOIN token_usage tu ON tu.user_id = u.id
+      WHERE u.created_at BETWEEN $1 AND $2
+        AND tu.created_at >= $3
+    `, [new Date(last7Days.getTime() - 7 * 24 * 60 * 60 * 1000), last7Days, last7Days])
+    const retained7DaysCount = Number(retained7Days.rows[0]?.count || 0)
+    const retention7Days = newUsers7DaysAgoCount > 0 ? (retained7DaysCount / newUsers7DaysAgoCount * 100).toFixed(2) : 0
+    
+    // 平均生命周期价值 (LTV) - 基于过去90天的数据
+    const ltvResult = await query(`
+      SELECT 
+        AVG(COALESCE(total_revenue, 0)) as avg_ltv,
+        COUNT(DISTINCT u.id) as user_count
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) as total_revenue
+        FROM revenue
+        WHERE created_at >= $1
+        GROUP BY user_id
+      ) r ON r.user_id = u.id
+      WHERE u.created_at >= $1
+    `, [last90Days])
+    const avgLTV = Number(ltvResult.rows[0]?.avg_ltv || 0)
+    
+    // 用户增长趋势 (过去30天每日新增)
+    const growthResult = await query(`
+      SELECT DATE(created_at) as date, COUNT(*) as count
+      FROM users
+      WHERE created_at >= $1
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+      LIMIT 30
+    `, [last30Days])
+    
+    // 收入趋势 (过去30天每日收入)
+    const revenueTrendResult = await query(`
+      SELECT DATE(created_at) as date, SUM(amount) as total
+      FROM revenue
+      WHERE created_at >= $1
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+      LIMIT 30
+    `, [last30Days])
+    
+    res.json({
+      success: true,
+      stats: {
+        dau: Math.round(avgDAU),
+        mau,
+        retention7Days: parseFloat(retention7Days),
+        avgLTV: parseFloat(avgLTV.toFixed(2)),
+        growthTrend: growthResult.rows.map(r => ({
+          date: r.date,
+          count: Number(r.count)
+        })),
+        revenueTrend: revenueTrendResult.rows.map(r => ({
+          date: r.date,
+          total: parseFloat(r.total || 0)
+        }))
+      }
+    })
+  } catch (error) {
+    console.error('Advanced stats error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // 获取所有用户列表
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
@@ -1026,7 +1154,17 @@ app.delete('/api/admin/users/:userId', authMiddleware, adminMiddleware, async (r
       return res.status(400).json({ error: 'Cannot delete yourself' })
     }
     
+    // 获取目标用户信息用于审计日志
+    const targetUser = await getUserByIdSafe(userId)
+    
     await deleteUserSafe(userId)
+    
+    // 记录审计日志
+    await logAdminAction(req.userId, 'delete_user', userId, {
+      targetUserEmail: targetUser?.email,
+      targetUserName: targetUser?.name
+    }, req)
+    
     res.json({ success: true, message: 'User deleted successfully' })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -1046,6 +1184,13 @@ app.put('/api/admin/users/:userId/toggle-admin', authMiddleware, adminMiddleware
     const user = await toggleUserAdminSafe(userId)
     const { password, password_hash, ...userWithoutPassword } = user
     
+    // 记录审计日志
+    await logAdminAction(req.userId, 'toggle_admin', userId, {
+      targetUserEmail: user.email,
+      targetUserName: user.name,
+      newAdminStatus: user.is_admin || user.isAdmin
+    }, req)
+    
     res.json({ success: true, user: userWithoutPassword })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -1062,7 +1207,17 @@ app.post('/api/admin/users/:userId/tokens', authMiddleware, adminMiddleware, asy
       return res.status(400).json({ error: 'Invalid token amount' })
     }
     
+    const targetUser = await getUserByIdSafe(userId)
     const newTokenCount = await addTokensToUserSafe(userId, amount)
+    
+    // 记录审计日志
+    await logAdminAction(req.userId, 'add_tokens', userId, {
+      targetUserEmail: targetUser?.email,
+      targetUserName: targetUser?.name,
+      amount: parseInt(amount),
+      newBalance: newTokenCount
+    }, req)
+    
     res.json({ success: true, tokens: newTokenCount, message: 'Tokens added successfully' })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -1140,6 +1295,9 @@ app.post('/api/admin/users/:userId/reset-password', authMiddleware, adminMiddlew
     const validation = validatePassword(newPassword)
     if (!validation.valid) return res.status(400).json({ error: validation.message })
 
+    const targetUser = await getUserByIdSafe(userId)
+    if (!targetUser) return res.status(404).json({ error: 'User not found' })
+
     const hash = await bcrypt.hash(newPassword, 10)
     if (useDb) {
       await query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, userId])
@@ -1148,6 +1306,13 @@ app.post('/api/admin/users/:userId/reset-password', authMiddleware, adminMiddlew
       if (!user) return res.status(404).json({ error: 'User not found' })
       user.password = hash
     }
+    
+    // 记录审计日志
+    await logAdminAction(req.userId, 'reset_password', userId, {
+      targetUserEmail: targetUser.email,
+      targetUserName: targetUser.name
+    }, req)
+    
     res.json({ success: true, message: 'Password reset successfully' })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -1159,6 +1324,11 @@ app.get('/api/admin/export/users', authMiddleware, adminMiddleware, async (req, 
   try {
     if (!useDb) return res.status(400).json({ error: 'Export requires database' })
     const { search, role, startDate, endDate, hasTokens } = req.query
+    
+    // 记录审计日志
+    await logAdminAction(req.userId, 'export_users', null, {
+      filters: { search, role, startDate, endDate, hasTokens }
+    }, req)
     const clauses = []
     const params = []
     if (search) {
@@ -1196,6 +1366,11 @@ app.get('/api/admin/export/usage', authMiddleware, adminMiddleware, async (req, 
   try {
     if (!useDb) return res.status(400).json({ error: 'Export requires database' })
     const { action, startDate, endDate, limit = 5000 } = req.query
+    
+    // 记录审计日志
+    await logAdminAction(req.userId, 'export_usage', null, {
+      filters: { action, startDate, endDate, limit }
+    }, req)
     const clauses = []
     const params = []
     if (action) {
@@ -1218,6 +1393,86 @@ app.get('/api/admin/export/usage', authMiddleware, adminMiddleware, async (req, 
     `
     const result = await query(sql, params)
     res.json({ success: true, usage: result.rows })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Admin 导出订单
+app.get('/api/admin/export/orders', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Export requires database' })
+    const { startDate, endDate, limit = 5000 } = req.query
+    
+    // 记录审计日志
+    await logAdminAction(req.userId, 'export_orders', null, {
+      filters: { startDate, endDate, limit }
+    }, req)
+    
+    const clauses = []
+    const params = []
+    if (startDate && endDate) {
+      clauses.push(`r.created_at BETWEEN $${params.length + 1} AND $${params.length + 2}`)
+      params.push(new Date(startDate), new Date(endDate))
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    const sql = `
+      SELECT r.id, r.amount, r.currency, r.source, r.created_at,
+             u.email, u.name
+      FROM revenue r
+      LEFT JOIN users u ON u.id = r.user_id
+      ${where}
+      ORDER BY r.created_at DESC
+      LIMIT ${Number(limit) || 5000}
+    `
+    const result = await query(sql, params)
+    res.json({ success: true, orders: result.rows })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Admin 获取审计日志
+app.get('/api/admin/audit-logs', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.json({ success: true, logs: [] })
+    const { startDate, endDate, action, adminUserId, limit = 100, offset = 0 } = req.query
+    const clauses = []
+    const params = []
+    
+    if (startDate && endDate) {
+      clauses.push(`aal.created_at BETWEEN $${params.length + 1} AND $${params.length + 2}`)
+      params.push(new Date(startDate), new Date(endDate))
+    }
+    if (action) {
+      clauses.push(`aal.action = $${params.length + 1}`)
+      params.push(action)
+    }
+    if (adminUserId) {
+      clauses.push(`aal.admin_user_id = $${params.length + 1}`)
+      params.push(adminUserId)
+    }
+    
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    const sql = `
+      SELECT aal.id, aal.action, aal.details, aal.ip_address, aal.user_agent, aal.created_at,
+             admin_u.email AS admin_email, admin_u.name AS admin_name,
+             target_u.email AS target_email, target_u.name AS target_name
+      FROM admin_audit_logs aal
+      LEFT JOIN users admin_u ON admin_u.id = aal.admin_user_id
+      LEFT JOIN users target_u ON target_u.id = aal.target_user_id
+      ${where}
+      ORDER BY aal.created_at DESC
+      LIMIT ${Number(limit) || 100} OFFSET ${Number(offset) || 0}
+    `
+    const result = await query(sql, params)
+    
+    // 获取总数
+    const countSql = `SELECT COUNT(*) FROM admin_audit_logs aal ${where}`
+    const countResult = await query(countSql, params)
+    const total = Number(countResult.rows[0].count)
+    
+    res.json({ success: true, logs: result.rows, total })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
