@@ -246,6 +246,8 @@ export const zh = {
     noChartData: '所选时间范围内没有数据',
     auditLogs: '审计日志',
     target: '目标',
+    tokensRemaining: '剩余额度',
+    tokensTip: '每次处理会消耗额度，若额度不足可升级或充值。'
   },
   
   // Hero

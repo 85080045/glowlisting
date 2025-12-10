@@ -246,6 +246,8 @@ export const en = {
     noChartData: 'No data available for the selected time range',
     auditLogs: 'Audit Logs',
     target: 'Target',
+    tokensRemaining: 'Remaining credits',
+    tokensTip: 'Each processed image consumes credits. Upgrade or recharge if needed.'
   },
   
   // Hero

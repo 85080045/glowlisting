@@ -303,6 +303,22 @@ export default function UploadSection({
           </p>
         </div>
 
+        {/* 额度提示 */}
+        {user && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
+            <div className="bg-gray-900/60 border border-gray-800 rounded-xl px-4 py-3 flex items-center gap-3">
+              <Coins className="h-5 w-5 text-amber-400" />
+              <div>
+                <p className="text-sm text-gray-400">{t('upload.tokensRemaining')}</p>
+                <p className="text-lg font-semibold text-white">{tokens ?? 0}</p>
+              </div>
+            </div>
+            <div className="bg-gray-900/60 border border-gray-800 rounded-xl px-4 py-3 md:col-span-2 text-sm text-gray-300">
+              {t('upload.tokensTip')}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
           {/* 上传区域 */}
           <div className="card-glass flex flex-col">

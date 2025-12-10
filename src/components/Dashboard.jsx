@@ -55,6 +55,10 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-2 text-left">
+                <p className="text-xs text-gray-400">{t('dashboard.tokensRemaining')}</p>
+                <p className="text-lg font-semibold text-white">{tokens ?? 0}</p>
+              </div>
               <button
                 onClick={() => navigate('/settings')}
                 className="btn-secondary flex items-center justify-center space-x-2 w-full sm:w-auto"
