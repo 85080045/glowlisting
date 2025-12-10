@@ -105,7 +105,14 @@ const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const NANOBANNA_API_KEY = process.env.NANOBANNA_API_KEY
+const NANOBANNA_API_URL = process.env.NANOBANNA_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
+
+// 记录关键配置状态（不输出敏感值）
+console.log(`[Config] DATABASE_URL: ${useDb ? 'set' : 'not set'}`)
+console.log(`[Config] NANOBANNA_API_KEY: ${NANOBANNA_API_KEY ? 'set' : 'not set'}`)
+console.log(`[Config] STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY ? 'set' : 'not set'}`)
 
 // Stripe plan constants
 // 如果设置了环境变量 STRIPE_PRICE_ID_PRO 和 STRIPE_PRICE_ID_PACK，将使用这些 Price ID
@@ -1622,10 +1629,6 @@ app.post('/api/enhance', upload.single('image'), async (req, res) => {
 
     // 使用 nanobanna (Gemini 2.5 Flash Image) API 进行图像增强
     // 参考文档: https://ai.google.dev/gemini-api/docs/image-generation
-    const NANOBANNA_API_KEY = process.env.NANOBANNA_API_KEY
-    // 使用正确的模型: gemini-2.5-flash-image (Nano Banana)
-    // 注意：如果免费配额用完，可能需要升级到付费计划
-    const NANOBANNA_API_URL = process.env.NANOBANNA_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent'
     
     // 准备 prompt - Commercial Real Estate Photo Enhancement Prompt (Refined Tonal Balance)
     const prompt = `1. 曝光、色彩与 HDR (Refined Tonal Balance)
