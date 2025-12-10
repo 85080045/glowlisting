@@ -101,7 +101,11 @@ export default function UploadSection({
     })
   }
 
-  const genId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
+  const genId = () => {
+    const c = typeof crypto !== 'undefined' ? crypto : null
+    if (c?.randomUUID) return c.randomUUID()
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
 
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files || [])
