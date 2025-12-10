@@ -2583,9 +2583,41 @@ app.post('/api/test-email', async (req, res) => {
   }
 })
 
+// 启动时自动运行迁移（如果数据库可用）
+if (useDb) {
+  (async () => {
+    try {
+      // 检查 admin_audit_logs 表是否存在，如果不存在则运行迁移
+      const tableCheck = await query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'admin_audit_logs'
+        )
+      `)
+      const tableExists = tableCheck.rows[0]?.exists
+      
+      if (!tableExists) {
+        console.log('🔄 检测到新的迁移，正在运行...')
+        const migrationPath = path.join(__dirname, 'db', 'migrations', '004_admin_audit_logs.sql')
+        if (fs.existsSync(migrationPath)) {
+          const migrationSQL = fs.readFileSync(migrationPath, 'utf8')
+          await query(migrationSQL)
+          console.log('✅ 迁移完成: admin_audit_logs 表已创建')
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ 迁移检查失败（不影响应用启动）:', error.message)
+    }
+  })()
+}
+
 app.listen(PORT, () => {
   console.log(`🚀 GlowListing API 服务器运行在 http://localhost:${PORT}`)
   console.log(`📝 已配置 nanobanna API 进行图像增强`)
   console.log(`📧 SMTP配置: ${process.env.SMTP_HOST || '未配置'}`)
+  if (useDb) {
+    console.log(`🗄️  数据库连接: 已配置`)
+  }
 })
 
