@@ -804,15 +804,18 @@ app.get('/api/images/history', authMiddleware, async (req, res) => {
       return res.json({ success: true, images: [] })
     }
     
-    // 从数据库获取用户的图片历史
+    // 只获取30分钟内创建的图片
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
+    
+    // 从数据库获取用户的图片历史（仅30分钟内）
     const result = await query(
       `SELECT id, filename, original_filename, thumbnail_data, enhanced_data, original_data, 
               file_size, mime_type, created_at
        FROM images 
-       WHERE user_id = $1 
+       WHERE user_id = $1 AND created_at >= $2
        ORDER BY created_at DESC 
        LIMIT 100`,
-      [req.userId]
+      [req.userId, thirtyMinutesAgo]
     )
     
     const images = result.rows.map(row => ({
@@ -842,16 +845,18 @@ app.get('/api/images/:imageId', authMiddleware, async (req, res) => {
     }
     
     const { imageId } = req.params
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
+    
     const result = await query(
       `SELECT id, filename, original_filename, thumbnail_data, enhanced_data, original_data, 
               file_size, mime_type, created_at
        FROM images 
-       WHERE id = $1 AND user_id = $2`,
-      [imageId, req.userId]
+       WHERE id = $1 AND user_id = $2 AND created_at >= $3`,
+      [imageId, req.userId, thirtyMinutesAgo]
     )
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Image not found' })
+      return res.status(404).json({ error: 'Image not found or expired (30 minutes limit)' })
     }
     
     const row = result.rows[0]
@@ -2686,6 +2691,23 @@ app.post('/api/test-email', async (req, res) => {
   }
 })
 
+// 清理超过30分钟的图片记录（定时任务）
+const cleanupOldImages = async () => {
+  if (!useDb) return
+  try {
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
+    const result = await query(
+      `DELETE FROM images WHERE created_at < $1`,
+      [thirtyMinutesAgo]
+    )
+    if (result.rowCount > 0) {
+      console.log(`🧹 清理了 ${result.rowCount} 条超过30分钟的图片记录`)
+    }
+  } catch (error) {
+    console.error('清理旧图片记录失败:', error.message)
+  }
+}
+
 // 启动时自动运行迁移（如果数据库可用）
 if (useDb) {
   (async () => {
@@ -2709,6 +2731,13 @@ if (useDb) {
           console.log('✅ 迁移完成: admin_audit_logs 表已创建')
         }
       }
+      
+      // 启动时清理一次旧图片
+      await cleanupOldImages()
+      
+      // 每10分钟清理一次超过30分钟的图片
+      setInterval(cleanupOldImages, 10 * 60 * 1000)
+      console.log('🔄 已启动图片清理任务（每10分钟清理超过30分钟的图片）')
     } catch (error) {
       console.error('⚠️ 迁移检查失败（不影响应用启动）:', error.message)
     }
