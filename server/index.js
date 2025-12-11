@@ -3592,6 +3592,15 @@ if (useDb) {
       await cleanupOldImages()
       await cleanupOldMessages()
       
+      // 检查AI Bot配置
+      const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
+      if (GOOGLE_AI_API_KEY) {
+        console.log(`✅ AI Bot configured: GOOGLE_AI_API_KEY found (${GOOGLE_AI_API_KEY.substring(0, 10)}...)`)
+      } else {
+        console.warn('⚠️ AI Bot NOT configured: GOOGLE_AI_API_KEY or GEMINI_API_KEY not found')
+        console.warn('⚠️ AI bot will not work until API key is set in environment variables')
+      }
+      
       // 每10分钟清理一次超过30分钟的图片
       setInterval(cleanupOldImages, 10 * 60 * 1000)
       console.log('🔄 已启动图片清理任务（每10分钟清理超过30分钟的图片）')
