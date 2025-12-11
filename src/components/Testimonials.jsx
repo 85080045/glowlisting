@@ -58,22 +58,28 @@ export default function Testimonials() {
         
         <ScrollReveal variant="fadeScale" delay={0.3}>
           <div className="mt-12 text-center">
-            <p className="text-gray-400 mb-4">
+            <p className="text-gray-400 mb-6 text-base sm:text-lg">
               {t('testimonials.trustedBy')}
             </p>
-            <div className="flex flex-wrap justify-center items-center gap-8 opacity-80">
-              <ScrollRevealItem variant="countUp" delay={0.4}>
-                <div className="text-2xl font-bold text-blue-400">1000+</div>
-              </ScrollRevealItem>
-              <div className="text-gray-300">{t('testimonials.companies')}</div>
-              <ScrollRevealItem variant="countUp" delay={0.5}>
-                <div className="text-2xl font-bold text-blue-400">5000+</div>
-              </ScrollRevealItem>
-              <div className="text-gray-300">{t('testimonials.photographers')}</div>
-              <ScrollRevealItem variant="countUp" delay={0.6}>
-                <div className="text-2xl font-bold text-blue-400">10000+</div>
-              </ScrollRevealItem>
-              <div className="text-gray-300">{t('testimonials.agents')}</div>
+            <div className="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-6 sm:gap-10 opacity-90">
+              <div className="text-center">
+                <ScrollRevealItem variant="countUp" delay={0.4}>
+                  <div className="text-4xl sm:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-200 leading-tight">1000+</div>
+                </ScrollRevealItem>
+                <div className="text-sm sm:text-base text-gray-300 mt-1">{t('testimonials.companies')}</div>
+              </div>
+              <div className="text-center">
+                <ScrollRevealItem variant="countUp" delay={0.5}>
+                  <div className="text-4xl sm:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-200 leading-tight">5000+</div>
+                </ScrollRevealItem>
+                <div className="text-sm sm:text-base text-gray-300 mt-1">{t('testimonials.photographers')}</div>
+              </div>
+              <div className="text-center">
+                <ScrollRevealItem variant="countUp" delay={0.6}>
+                  <div className="text-4xl sm:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-200 leading-tight">10000+</div>
+                </ScrollRevealItem>
+                <div className="text-sm sm:text-base text-gray-300 mt-1">{t('testimonials.agents')}</div>
+              </div>
             </div>
           </div>
         </ScrollReveal>
