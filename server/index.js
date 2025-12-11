@@ -1627,6 +1627,8 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
 
     // 广播给所有管理员（新消息通知）
     const hasAdmin = await hasAdminOnline()
+    console.log(`📨 User ${req.userId} sent message. Admin online: ${hasAdmin}`)
+    
     wsBroadcastToAdmins({
       type: 'message_new',
       messageId: newMsg.id,
@@ -1637,6 +1639,7 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
 
     // 如果没有管理员在线，使用AI Bot自动回复（延迟3秒，给管理员时间回复）
     if (!hasAdmin) {
+      console.log(`🤖 No admin online, scheduling AI bot reply in 3 seconds...`)
       setTimeout(async () => {
         try {
           // 再次检查是否有管理员回复（避免重复回复）
@@ -1646,11 +1649,16 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
             [req.userId, newMsg.created_at]
           )
           
-          if (Number(recentAdminReply.rows[0]?.count || 0) === 0) {
+          const adminReplyCount = Number(recentAdminReply.rows[0]?.count || 0)
+          console.log(`🤖 Checking for admin replies: ${adminReplyCount} found`)
+          
+          if (adminReplyCount === 0) {
             // 没有管理员回复，生成AI回复
+            console.log(`🤖 Generating AI bot reply for user ${req.userId}...`)
             const botReply = await generateAIBotReply(req.userId, newMsg.message)
             
             if (botReply) {
+              console.log(`🤖 AI bot generated reply: ${botReply.substring(0, 100)}...`)
               const botResult = await query(
                 `INSERT INTO messages (user_id, is_admin, message)
                  VALUES ($1, TRUE, $2)
@@ -1668,13 +1676,20 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
                 createdAt: botMsg.created_at,
               })
               
-              console.log(`🤖 AI Bot replied to user ${req.userId}`)
+              console.log(`🤖 AI Bot replied to user ${req.userId} successfully`)
+            } else {
+              console.warn(`⚠️ AI Bot returned null/empty reply`)
             }
+          } else {
+            console.log(`🤖 Admin already replied, skipping AI bot reply`)
           }
         } catch (error) {
-          console.error('AI Bot auto-reply error:', error)
+          console.error('❌ AI Bot auto-reply error:', error)
+          console.error('Error stack:', error.stack)
         }
       }, 3000) // 3秒延迟
+    } else {
+      console.log(`👤 Admin is online, AI bot will not reply`)
     }
 
     res.json({ success: true, message: newMsg })
@@ -3613,8 +3628,11 @@ const generateAIBotReply = async (userId, userMessage) => {
     const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
     if (!GOOGLE_AI_API_KEY) {
       console.warn('⚠️ GOOGLE_AI_API_KEY not configured, AI bot disabled')
+      console.warn('⚠️ Please set GOOGLE_AI_API_KEY or GEMINI_API_KEY in environment variables')
       return null
     }
+    
+    console.log(`🤖 AI Bot: Generating reply for user ${userId}, message: ${userMessage.substring(0, 50)}...`)
 
     // 获取用户的历史消息（最近10条，用于上下文）
     const historyRows = await query(
@@ -3670,15 +3688,22 @@ ${history.map(h => `${h.role}: ${h.content}`).join('\n')}
 
 Please provide a helpful response (only if the question is within your scope, otherwise direct them to email hello@glowlisting.ai):`
 
+    console.log(`🤖 AI Bot: Calling Gemini API...`)
     const result = await model.generateContent(systemPrompt)
     const response = result.response
     const botReply = response.text().trim()
 
-    if (!botReply) return null
+    if (!botReply) {
+      console.warn('⚠️ AI Bot: Empty response from Gemini API')
+      return null
+    }
 
+    console.log(`🤖 AI Bot: Successfully generated reply (${botReply.length} chars)`)
     return botReply
   } catch (error) {
-    console.error('AI Bot reply generation error:', error)
+    console.error('❌ AI Bot reply generation error:', error)
+    console.error('Error message:', error.message)
+    console.error('Error stack:', error.stack)
     return null
   }
 }
