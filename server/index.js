@@ -1637,60 +1637,98 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
       createdAt: newMsg.created_at,
     })
 
-    // 如果没有管理员在线，使用AI Bot自动回复（延迟3秒，给管理员时间回复）
-    if (!hasAdmin) {
-      console.log(`🤖 No admin online, scheduling AI bot reply in 3 seconds...`)
-      setTimeout(async () => {
-        try {
-          // 再次检查是否有管理员回复（避免重复回复）
-          const recentAdminReply = await query(
-            `SELECT COUNT(*) FROM messages 
-             WHERE user_id = $1 AND is_admin = TRUE AND created_at > $2`,
-            [req.userId, newMsg.created_at]
-          )
-          
-          const adminReplyCount = Number(recentAdminReply.rows[0]?.count || 0)
-          console.log(`🤖 Checking for admin replies: ${adminReplyCount} found`)
-          
-          if (adminReplyCount === 0) {
-            // 没有管理员回复，生成AI回复
-            console.log(`🤖 Generating AI bot reply for user ${req.userId}...`)
-            const botReply = await generateAIBotReply(req.userId, newMsg.message)
-            
-            if (botReply) {
-              console.log(`🤖 AI bot generated reply: ${botReply.substring(0, 100)}...`)
-              const botResult = await query(
-                `INSERT INTO messages (user_id, is_admin, message)
-                 VALUES ($1, TRUE, $2)
-                 RETURNING id, user_id, is_admin, message, created_at`,
-                [req.userId, `[AI Assistant] ${botReply}`]
-              )
-              
-              const botMsg = botResult.rows[0]
-              
-              // 通知用户收到AI回复
-              wsBroadcastToUser(req.userId, {
-                type: 'message_reply',
-                messageId: botMsg.id,
-                message: botMsg.message,
-                createdAt: botMsg.created_at,
-              })
-              
-              console.log(`🤖 AI Bot replied to user ${req.userId} successfully`)
-            } else {
-              console.warn(`⚠️ AI Bot returned null/empty reply`)
-            }
-          } else {
-            console.log(`🤖 Admin already replied, skipping AI bot reply`)
-          }
-        } catch (error) {
-          console.error('❌ AI Bot auto-reply error:', error)
-          console.error('Error stack:', error.stack)
-        }
-      }, 3000) // 3秒延迟
-    } else {
-      console.log(`👤 Admin is online, AI bot will not reply`)
+    // 检测用户是否要求转接管理员
+    const userMessageLower = newMsg.message.toLowerCase()
+    const transferKeywords = [
+      '转接', '转人工', '转管理员', '真人', '人工服务', '人工客服',
+      'transfer', 'human', 'agent', 'admin', 'manager', 'real person',
+      'speak to', 'talk to', 'connect me', 'hand me over'
+    ]
+    const needsTransfer = transferKeywords.some(keyword => userMessageLower.includes(keyword))
+    
+    if (needsTransfer) {
+      console.log(`🔄 User ${req.userId} requested transfer to admin`)
+      // 通知管理员用户要求转接
+      wsBroadcastToAdmins({
+        type: 'transfer_request',
+        messageId: newMsg.id,
+        userId: req.userId,
+        message: newMsg.message,
+        createdAt: newMsg.created_at,
+        note: 'User requested transfer to human agent'
+      })
     }
+
+    // AI Bot总是先介入（延迟3秒，给管理员时间先回复）
+    console.log(`🤖 Scheduling AI bot reply in 3 seconds...`)
+    setTimeout(async () => {
+      try {
+        // 再次检查是否有管理员回复（避免重复回复）
+        const recentAdminReply = await query(
+          `SELECT COUNT(*) FROM messages 
+           WHERE user_id = $1 AND is_admin = TRUE AND created_at > $2`,
+          [req.userId, newMsg.created_at]
+        )
+        
+        const adminReplyCount = Number(recentAdminReply.rows[0]?.count || 0)
+        console.log(`🤖 Checking for admin replies: ${adminReplyCount} found`)
+        
+        if (adminReplyCount === 0) {
+          // 没有管理员回复，生成AI回复
+          console.log(`🤖 Generating AI bot reply for user ${req.userId}...`)
+          const botReply = await generateAIBotReply(req.userId, newMsg.message, needsTransfer)
+          
+          if (botReply) {
+            console.log(`🤖 AI bot generated reply: ${botReply.substring(0, 100)}...`)
+            const botResult = await query(
+              `INSERT INTO messages (user_id, is_admin, message)
+               VALUES ($1, TRUE, $2)
+               RETURNING id, user_id, is_admin, message, created_at`,
+              [req.userId, `[AI Assistant] ${botReply}`]
+            )
+            
+            const botMsg = botResult.rows[0]
+            
+            // 通知用户收到AI回复
+            wsBroadcastToUser(req.userId, {
+              type: 'message_reply',
+              messageId: botMsg.id,
+              message: botMsg.message,
+              createdAt: botMsg.created_at,
+            })
+            
+            // 通知管理员有新消息（包括AI回复）
+            wsBroadcastToAdmins({
+              type: 'message_new',
+              messageId: botMsg.id,
+              userId: req.userId,
+              message: botMsg.message,
+              createdAt: botMsg.created_at,
+            })
+            
+            console.log(`🤖 AI Bot replied to user ${req.userId} successfully`)
+          } else {
+            console.warn(`⚠️ AI Bot returned null/empty reply`)
+            // 如果AI无法回复，通知管理员
+            if (!needsTransfer) {
+              wsBroadcastToAdmins({
+                type: 'ai_failed',
+                messageId: newMsg.id,
+                userId: req.userId,
+                message: newMsg.message,
+                createdAt: newMsg.created_at,
+                note: 'AI bot failed to generate reply'
+              })
+            }
+          }
+        } else {
+          console.log(`🤖 Admin already replied, skipping AI bot reply`)
+        }
+      } catch (error) {
+        console.error('❌ AI Bot auto-reply error:', error)
+        console.error('Error stack:', error.stack)
+      }
+    }, 3000) // 3秒延迟
 
     res.json({ success: true, message: newMsg })
   } catch (error) {
@@ -3623,7 +3661,7 @@ const hasAdminOnline = async () => {
 }
 
 // AI Bot 自动回复
-const generateAIBotReply = async (userId, userMessage) => {
+const generateAIBotReply = async (userId, userMessage, needsTransfer = false) => {
   try {
     const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
     if (!GOOGLE_AI_API_KEY) {
@@ -3655,6 +3693,10 @@ const generateAIBotReply = async (userId, userMessage) => {
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
     // 构建系统提示词
+    const transferNote = needsTransfer 
+      ? '\n\n⚠️ IMPORTANT: The user has requested to speak with a human agent/admin. Acknowledge this request and let them know that an administrator will be notified and will respond soon.'
+      : ''
+    
     const systemPrompt = `You are a customer support assistant for GlowListing, a real estate photo enhancement service.
 
 IMPORTANT RULES:
@@ -3675,11 +3717,19 @@ IMPORTANT RULES:
    - Direct them to email hello@glowlisting.ai for other inquiries
    - Keep your response brief and professional
 
-4. Response guidelines:
+4. If the user requests to speak with a human agent or administrator:
+   - Acknowledge their request politely
+   - Let them know that an administrator has been notified and will respond soon
+   - Continue to help if you can, but make it clear that a human will follow up
+
+5. Response guidelines:
    - Keep responses concise and helpful
    - Respond in the same language as the user's message
    - Be friendly and professional
    - Focus on solving the user's specific issue
+   - If you cannot solve the issue after a few exchanges, suggest transferring to a human agent
+
+${transferNote}
 
 User's message: ${userMessage}
 
