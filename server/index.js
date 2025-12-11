@@ -1104,6 +1104,156 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) =>
   }
 })
 
+// 管理员总览 /admin/overview
+app.get('/api/admin/overview', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) {
+      return res.status(400).json({ error: 'Overview requires database' })
+    }
+    const { range = '30d' } = req.query
+    const now = new Date()
+    const startMap = {
+      '7d': new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+      '30d': new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+      'all': new Date(0)
+    }
+    const rangeStart = startMap[range] || startMap['30d']
+    const start30d = startMap['30d']
+
+    // 总营收 & 30天营收
+    const revenueAll = await query(`SELECT COALESCE(SUM(amount),0) AS total FROM revenue`)
+    const revenue30 = await query(`SELECT COALESCE(SUM(amount),0) AS total FROM revenue WHERE created_at >= $1`, [start30d])
+
+    // 活跃订阅数、MRR 估算（简单按活跃订阅 * 1 计，无价格信息可用时为 0）
+    const activeSubs = await query(`SELECT COUNT(*) AS cnt FROM subscriptions WHERE status = 'active'`)
+    const activeSubscriptions = Number(activeSubs.rows[0]?.cnt || 0)
+    const mrrEstimate = 0 // TODO: 如果有价格表，可按计划价格计算
+
+    // 新增注册数
+    const newSignups = await query(`SELECT COUNT(*) AS cnt FROM users WHERE created_at >= $1`, [rangeStart])
+
+    // 活跃用户（30天内有登录或使用记录）
+    const activeUsersResult = await query(
+      `SELECT COUNT(DISTINCT u.id) AS cnt
+       FROM users u
+       LEFT JOIN token_usage tu ON tu.user_id = u.id AND tu.created_at >= $1
+       WHERE u.last_login_at >= $1 OR tu.user_id IS NOT NULL`,
+      [start30d]
+    )
+
+    // 处理的图片数（job 统计）
+    const jobsAll = await query(`SELECT COALESCE(SUM(processed_images),0) AS cnt FROM jobs WHERE status = 'succeeded'`)
+    const jobs30 = await query(`SELECT COALESCE(SUM(processed_images),0) AS cnt FROM jobs WHERE status = 'succeeded' AND created_at >= $1`, [start30d])
+
+    // 错误率（30天）
+    const jobTotals = await query(`SELECT COUNT(*) AS total FROM jobs WHERE created_at >= $1`, [start30d])
+    const jobFails = await query(`SELECT COUNT(*) AS failed FROM jobs WHERE status = 'failed' AND created_at >= $1`, [start30d])
+    const totalJobs30 = Number(jobTotals.rows[0]?.total || 0)
+    const failedJobs30 = Number(jobFails.rows[0]?.failed || 0)
+    const errorRate = totalJobs30 > 0 ? failedJobs30 / totalJobs30 : 0
+
+    // 图表：收入（30天）
+    const revenueDaily = await query(
+      `SELECT DATE(created_at) AS date, COALESCE(SUM(amount),0) AS total
+       FROM revenue
+       WHERE created_at >= $1
+       GROUP BY DATE(created_at)
+       ORDER BY date`,
+      [start30d]
+    )
+
+    // 图表：订阅创建（30天）
+    const subsDaily = await query(
+      `SELECT DATE(created_at) AS date, COUNT(*) AS cnt
+       FROM subscriptions
+       WHERE created_at >= $1
+       GROUP BY DATE(created_at)
+       ORDER BY date`,
+      [start30d]
+    )
+
+    // 图表：图片处理（30天，按 job）
+    const jobsDaily = await query(
+      `SELECT DATE(created_at) AS date, COALESCE(SUM(processed_images),0) AS total
+       FROM jobs
+       WHERE status = 'succeeded' AND created_at >= $1
+       GROUP BY DATE(created_at)
+       ORDER BY date`,
+      [start30d]
+    )
+
+    // 图表：新用户（30天）
+    const usersDaily = await query(
+      `SELECT DATE(created_at) AS date, COUNT(*) AS cnt
+       FROM users
+       WHERE created_at >= $1
+       GROUP BY DATE(created_at)
+       ORDER BY date`,
+      [start30d]
+    )
+
+    // 最近活动（用户注册/订阅/收入/任务）
+    const recentUsers = await query(
+      `SELECT 'user' AS type, id, email, name, created_at
+       FROM users
+       ORDER BY created_at DESC
+       LIMIT 5`
+    )
+    const recentSubs = await query(
+      `SELECT 'subscription' AS type, id, plan_type AS plan, status, created_at
+       FROM subscriptions
+       ORDER BY created_at DESC
+       LIMIT 5`
+    )
+    const recentRev = await query(
+      `SELECT 'revenue' AS type, id, amount, currency, source, created_at
+       FROM revenue
+       ORDER BY created_at DESC
+       LIMIT 5`
+    )
+    const recentJobs = await query(
+      `SELECT 'job' AS type, id, status, processed_images, error_count, created_at
+       FROM jobs
+       ORDER BY created_at DESC
+       LIMIT 5`
+    )
+
+    const recentActivity = [
+      ...recentUsers.rows,
+      ...recentSubs.rows,
+      ...recentRev.rows,
+      ...recentJobs.rows
+    ]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 20)
+
+    res.json({
+      success: true,
+      kpis: {
+        totalRevenueAll: Number(revenueAll.rows[0]?.total || 0),
+        totalRevenue30d: Number(revenue30.rows[0]?.total || 0),
+        mrrEstimate: mrrEstimate,
+        activeSubscriptions,
+        newSignups: Number(newSignups.rows[0]?.cnt || 0),
+        activeUsers: Number(activeUsersResult.rows[0]?.cnt || 0),
+        photosProcessedAll: Number(jobsAll.rows[0]?.cnt || 0),
+        photosProcessed30d: Number(jobs30.rows[0]?.cnt || 0),
+        errorRate,
+      },
+      charts: {
+        revenueDaily: revenueDaily.rows,
+        subscriptionsDaily: subsDaily.rows,
+        jobsDaily: jobsDaily.rows,
+        usersDaily: usersDaily.rows,
+      },
+      recentActivity
+    })
+  } catch (error) {
+    console.error('Admin overview error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Admin 高级统计（留存率、LTV等）
 app.get('/api/admin/advanced-stats', authMiddleware, adminMiddleware, async (req, res) => {
   try {
@@ -1698,6 +1848,17 @@ app.post('/api/enhance', upload.single('image'), async (req, res) => {
     
     const base64Image = imageBuffer.toString('base64')
 
+    // 创建 job 记录（用于统计/错误率）
+    let jobId = null
+    if (useDb && userId) {
+      const jobResult = await query(
+        `INSERT INTO jobs (user_id, status, total_images, processed_images, error_count)
+         VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [userId, 'processing', 1, 0, 0]
+      )
+      jobId = jobResult.rows[0].id
+    }
+
     // 使用 nanobanna (Gemini 2.5 Flash Image) API 进行图像增强
     // 参考文档: https://ai.google.dev/gemini-api/docs/image-generation
     
@@ -2046,6 +2207,20 @@ B. 室外照片 (Facade/Garden)：
           res.setHeader('X-Tokens-Remaining', remainingTokens.toString())
         }
 
+        // 更新 job 状态成功
+        if (useDb && jobId) {
+          try {
+            await query(
+              `UPDATE jobs 
+               SET status = 'succeeded', processed_images = 1, error_count = 0, finished_at = NOW()
+               WHERE id = $1`,
+              [jobId]
+            )
+          } catch (jobErr) {
+            console.error('更新 job 状态失败:', jobErr)
+          }
+        }
+
         res.json({
           success: true,
           image: `data:image/jpeg;base64,${previewBase64}`, // 预览图（带水印）
@@ -2060,6 +2235,20 @@ B. 室外照片 (Facade/Garden)：
         console.error('Error status:', apiError.response?.status)
         console.error('Error headers:', apiError.response?.headers)
         
+        // job 标记失败
+        if (useDb && jobId) {
+          try {
+            await query(
+              `UPDATE jobs 
+               SET status = 'failed', error_count = 1, error_message = $1, finished_at = NOW()
+               WHERE id = $2`,
+              [apiError.message || 'enhance failed', jobId]
+            )
+          } catch (jobErr) {
+            console.error('更新 job 失败状态出错:', jobErr)
+          }
+        }
+
         // 清理临时文件
         if (fs.existsSync(finalImagePath)) {
           fs.unlinkSync(finalImagePath)
