@@ -1660,9 +1660,11 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
     }
 
     // AI Bot总是先介入（延迟3秒，给管理员时间先回复）
-    console.log(`🤖 Scheduling AI bot reply in 3 seconds...`)
-    setTimeout(async () => {
+    console.log(`🤖 Scheduling AI bot reply in 3 seconds for user ${req.userId}...`)
+    const timeoutId = setTimeout(async () => {
       try {
+        console.log(`🤖 AI bot timeout triggered for user ${req.userId} at ${new Date().toISOString()}`)
+        
         // 再次检查是否有管理员回复（避免重复回复）
         const recentAdminReply = await query(
           `SELECT COUNT(*) FROM messages 
@@ -1671,12 +1673,14 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
         )
         
         const adminReplyCount = Number(recentAdminReply.rows[0]?.count || 0)
-        console.log(`🤖 Checking for admin replies: ${adminReplyCount} found`)
+        console.log(`🤖 Checking for admin replies: ${adminReplyCount} found for user ${req.userId}`)
         
         if (adminReplyCount === 0) {
           // 没有管理员回复，生成AI回复
-          console.log(`🤖 Generating AI bot reply for user ${req.userId}...`)
+          console.log(`🤖 No admin reply found, generating AI bot reply for user ${req.userId}...`)
           const botReply = await generateAIBotReply(req.userId, newMsg.message, needsTransfer)
+          
+          console.log(`🤖 AI bot reply result: ${botReply ? `Got reply (${botReply.length} chars)` : 'null/empty'}`)
           
           if (botReply) {
             console.log(`🤖 AI bot generated reply: ${botReply.substring(0, 100)}...`)
@@ -3740,22 +3744,35 @@ ${history.map(h => `${h.role}: ${h.content}`).join('\n')}
 
 Please provide a helpful response (only if the question is within your scope, otherwise direct them to email hello@glowlisting.ai):`
 
-    console.log(`🤖 AI Bot: Calling Gemini API...`)
+    console.log(`🤖 AI Bot: Calling Gemini API with model gemini-1.5-flash...`)
+    console.log(`🤖 AI Bot: Prompt length: ${systemPrompt.length} chars`)
+    
     const result = await model.generateContent(systemPrompt)
+    console.log(`🤖 AI Bot: Gemini API call successful`)
+    
     const response = result.response
     const botReply = response.text().trim()
 
     if (!botReply) {
       console.warn('⚠️ AI Bot: Empty response from Gemini API')
+      console.warn('⚠️ Response object:', JSON.stringify(response, null, 2))
       return null
     }
 
-    console.log(`🤖 AI Bot: Successfully generated reply (${botReply.length} chars)`)
+    console.log(`✅ AI Bot: Successfully generated reply (${botReply.length} chars)`)
+    console.log(`✅ AI Bot: Reply preview: ${botReply.substring(0, 100)}...`)
     return botReply
   } catch (error) {
     console.error('❌ AI Bot reply generation error:', error)
-    console.error('Error message:', error.message)
-    console.error('Error stack:', error.stack)
+    console.error('❌ Error name:', error.name)
+    console.error('❌ Error message:', error.message)
+    console.error('❌ Error code:', error.code)
+    if (error.stack) {
+      console.error('❌ Error stack:', error.stack)
+    }
+    if (error.response) {
+      console.error('❌ Error response:', error.response)
+    }
     return null
   }
 }
