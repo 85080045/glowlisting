@@ -1254,6 +1254,167 @@ app.get('/api/admin/overview', authMiddleware, adminMiddleware, async (req, res)
   }
 })
 
+// Admin billing: subscriptions list
+app.get('/api/admin/billing/subscriptions', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Billing requires database' })
+    const { status, limit = 50, offset = 0 } = req.query
+    const clauses = []
+    const params = []
+    if (status) {
+      clauses.push(`s.status = $${params.length + 1}`)
+      params.push(status)
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    const sql = `
+      SELECT s.id, s.user_id, s.plan_type, s.plan_name, s.status, s.created_at, s.current_period_start, s.current_period_end,
+             s.cancel_at_period_end, s.cancel_at, s.trial_end,
+             s.stripe_subscription_id, s.stripe_customer_id, s.stripe_price_id, s.stripe_product_id,
+             s.amount, s.currency, s.interval,
+             u.email, u.name
+      FROM subscriptions s
+      LEFT JOIN users u ON u.id = s.user_id
+      ${where}
+      ORDER BY s.created_at DESC
+      LIMIT ${Number(limit) || 50} OFFSET ${Number(offset) || 0}
+    `
+    const rows = await query(sql, params)
+    const count = await query(`SELECT COUNT(*) FROM subscriptions s ${where}`, params)
+    res.json({ success: true, subscriptions: rows.rows, total: Number(count.rows[0].count) })
+  } catch (error) {
+    console.error('Admin billing subscriptions error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Admin billing: subscription detail
+app.get('/api/admin/billing/subscriptions/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Billing requires database' })
+    const { id } = req.params
+    const sub = await query(
+      `SELECT s.*, u.email, u.name
+       FROM subscriptions s
+       LEFT JOIN users u ON u.id = s.user_id
+       WHERE s.id = $1`,
+      [id]
+    )
+    if (sub.rows.length === 0) {
+      return res.status(404).json({ error: 'Subscription not found' })
+    }
+
+    // 计算当前周期内的已用 credits（基于 token_usage action=process）
+    let creditsUsed = null
+    try {
+      if (sub.rows[0].current_period_start && sub.rows[0].current_period_end) {
+        const used = await query(
+          `SELECT COUNT(*) AS cnt
+           FROM token_usage
+           WHERE user_id = $1
+             AND action = 'process'
+             AND created_at BETWEEN $2 AND $3`,
+          [sub.rows[0].user_id, sub.rows[0].current_period_start, sub.rows[0].current_period_end]
+        )
+        creditsUsed = Number(used.rows[0].cnt || 0)
+      }
+    } catch (e) {
+      creditsUsed = null
+    }
+
+    res.json({
+      success: true,
+      subscription: sub.rows[0],
+      usage: {
+        creditsUsed,
+      },
+    })
+  } catch (error) {
+    console.error('Admin billing subscription detail error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Admin billing: one-time purchases
+app.get('/api/admin/billing/one-time', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Billing requires database' })
+    const { limit = 100, offset = 0 } = req.query
+    const rows = await query(
+      `SELECT r.id, r.user_id, r.amount, r.currency, r.source, r.plan_type, r.credits, r.quantity,
+              r.stripe_payment_intent_id, r.stripe_charge_id, r.stripe_price_id, r.stripe_product_id,
+              r.created_at, u.email, u.name
+       FROM revenue r
+       LEFT JOIN users u ON u.id = r.user_id
+       WHERE r.source = 'one_time_pack' OR r.plan_type = 'one_time'
+       ORDER BY r.created_at DESC
+       LIMIT ${Number(limit) || 100} OFFSET ${Number(offset) || 0}`
+    )
+    const count = await query(
+      `SELECT COUNT(*) FROM revenue r WHERE r.source = 'one_time_pack' OR r.plan_type = 'one_time'`
+    )
+    res.json({ success: true, purchases: rows.rows, total: Number(count.rows[0].count) })
+  } catch (error) {
+    console.error('Admin billing one-time error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Admin billing: revenue summary
+app.get('/api/admin/billing/summary', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Billing requires database' })
+    const { range = '30d' } = req.query
+    const now = new Date()
+    const startMap = {
+      '7d': new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+      '30d': new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+      'all': new Date(0)
+    }
+    const rangeStart = startMap[range] || startMap['30d']
+
+    // 收入按产品/计划
+    const revenueByPlan = await query(
+      `SELECT COALESCE(plan_type, source, 'unknown') AS plan, COALESCE(SUM(amount),0) AS total
+       FROM revenue
+       WHERE created_at >= $1
+       GROUP BY plan_type, source`,
+      [rangeStart]
+    )
+
+    // 收入按日
+    const revenueDaily = await query(
+      `SELECT DATE(created_at) AS date, COALESCE(SUM(amount),0) AS total
+       FROM revenue
+       WHERE created_at >= $1
+       GROUP BY DATE(created_at)
+       ORDER BY date`,
+      [rangeStart]
+    )
+
+    // Top customers by revenue
+    const topCustomers = await query(
+      `SELECT u.email, u.name, COALESCE(SUM(r.amount),0) AS total
+       FROM revenue r
+       LEFT JOIN users u ON u.id = r.user_id
+       WHERE r.created_at >= $1
+       GROUP BY u.email, u.name
+       ORDER BY total DESC
+       LIMIT 20`,
+      [rangeStart]
+    )
+
+    res.json({
+      success: true,
+      revenueByPlan: revenueByPlan.rows,
+      revenueDaily: revenueDaily.rows,
+      topCustomers: topCustomers.rows
+    })
+  } catch (error) {
+    console.error('Admin billing summary error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Admin 高级统计（留存率、LTV等）
 app.get('/api/admin/advanced-stats', authMiddleware, adminMiddleware, async (req, res) => {
   try {
