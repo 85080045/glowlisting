@@ -56,6 +56,14 @@ export default function AdminDashboard() {
   const [billingSummary, setBillingSummary] = useState({ revenueByPlan: [], revenueDaily: [], topCustomers: [] })
   const [billingRange, setBillingRange] = useState('30d')
   const [billingLoading, setBillingLoading] = useState(false)
+  const [supportItems, setSupportItems] = useState([])
+  const [supportTotal, setSupportTotal] = useState(0)
+  const [supportStatusFilter, setSupportStatusFilter] = useState('')
+  const [supportCategoryFilter, setSupportCategoryFilter] = useState('')
+  const [supportLoading, setSupportLoading] = useState(false)
+  const [supportReplyTarget, setSupportReplyTarget] = useState(null)
+  const [supportReplyText, setSupportReplyText] = useState('')
+  const [supportStatusUpdate, setSupportStatusUpdate] = useState('')
   const [resetPasswordUser, setResetPasswordUser] = useState(null)
   const [resetPasswordValue, setResetPasswordValue] = useState('')
   const [userSearch, setUserSearch] = useState('')
@@ -156,6 +164,27 @@ export default function AdminDashboard() {
         setBillingSummary({ revenueByPlan: [], revenueDaily: [], topCustomers: [] })
       } finally {
         setBillingLoading(false)
+      }
+
+      // support 数据
+      setSupportLoading(true)
+      try {
+        const supportRes = await axios.get(`${API_URL}/admin/support/feedback`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            status: supportStatusFilter || undefined,
+            category: supportCategoryFilter || undefined,
+            limit: 200,
+          },
+        })
+        setSupportItems(supportRes.data.feedback || [])
+        setSupportTotal(supportRes.data.total || 0)
+      } catch (e) {
+        console.warn('Failed to fetch support data:', e)
+        setSupportItems([])
+        setSupportTotal(0)
+      } finally {
+        setSupportLoading(false)
       }
     } catch (error) {
       console.error('Failed to fetch admin data:', error)
@@ -420,6 +449,16 @@ export default function AdminDashboard() {
           }`}
         >
           {t('adminDashboard.billing')}
+        </button>
+        <button
+          onClick={() => setActiveTab('support')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'support'
+              ? 'bg-blue-600 text-white'
+              : 'glass-dark text-gray-300 hover:bg-gray-800'
+          }`}
+        >
+          {t('adminDashboard.support')}
         </button>
         </div>
 
@@ -1217,6 +1256,206 @@ export default function AdminDashboard() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Support */}
+        {activeTab === 'support' && (
+          <div className="space-y-4">
+            <div className="glass-dark rounded-xl p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white">{t('adminDashboard.support')}</h2>
+                  <p className="text-sm text-gray-400">{t('adminDashboard.supportDesc') || 'User feedback & issues'}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    value={supportStatusFilter}
+                    onChange={(e) => {
+                      setSupportStatusFilter(e.target.value)
+                      fetchData(startDate, endDate)
+                    }}
+                    className="bg-gray-900/50 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('adminDashboard.allStatus')}</option>
+                    <option value="open">{t('adminDashboard.statusOpen')}</option>
+                    <option value="in_progress">{t('adminDashboard.statusInProgress')}</option>
+                    <option value="resolved">{t('adminDashboard.statusResolved')}</option>
+                  </select>
+                  <select
+                    value={supportCategoryFilter}
+                    onChange={(e) => {
+                      setSupportCategoryFilter(e.target.value)
+                      fetchData(startDate, endDate)
+                    }}
+                    className="bg-gray-900/50 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('adminDashboard.allCategories')}</option>
+                    <option value="bug">{t('dashboard.supportCategoryBug')}</option>
+                    <option value="idea">{t('dashboard.supportCategoryIdea')}</option>
+                    <option value="complaint">{t('dashboard.supportCategoryComplaint')}</option>
+                    <option value="other">{t('dashboard.supportCategoryOther')}</option>
+                  </select>
+                  {supportLoading && (
+                    <span className="text-xs text-gray-400">{t('adminDashboard.loading')}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-800/50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.user')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.category')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.status')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.message')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.time')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.reply')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {supportItems.map((f) => (
+                      <tr key={f.id} className="hover:bg-gray-800/30 transition-colors align-top">
+                        <td className="px-4 py-3 text-sm text-white">
+                          <div className="flex flex-col">
+                            <span>{f.user_name || f.user_email || '-'}</span>
+                            <span className="text-xs text-gray-400">{f.user_email || '-'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{f.category || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{f.status || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-200 max-w-xs break-words whitespace-pre-wrap">{f.message}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">
+                          {f.created_at ? new Date(f.created_at).toLocaleString() : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-200 max-w-xs break-words whitespace-pre-wrap">
+                          {f.admin_reply ? (
+                            <>
+                              <div>{f.admin_reply}</div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                {f.admin_reply_at ? new Date(f.admin_reply_at).toLocaleString() : ''}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-gray-500 text-xs">{t('adminDashboard.noReply')}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right space-y-2">
+                          <button
+                            className="btn-secondary w-full text-sm"
+                            onClick={() => {
+                              const nextStatus =
+                                f.status === 'open' ? 'in_progress' : f.status === 'in_progress' ? 'resolved' : 'open'
+                              axios.put(
+                                `${API_URL}/admin/support/feedback/${f.id}`,
+                                { status: nextStatus },
+                                { headers: { Authorization: `Bearer ${token}` } }
+                              ).then(() => fetchData(startDate, endDate))
+                            }}
+                          >
+                            {t('adminDashboard.toggleStatus')}
+                          </button>
+                          <button
+                            className="btn-primary w-full text-sm"
+                            onClick={() => {
+                              setSupportReplyTarget(f)
+                              setSupportReplyText(f.admin_reply || '')
+                            }}
+                          >
+                            {t('adminDashboard.reply')}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {supportItems.length === 0 && (
+                      <tr>
+                        <td className="px-4 py-6 text-center text-gray-400 text-sm" colSpan={7}>
+                          {t('adminDashboard.noData')}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Reply modal */}
+            {supportReplyTarget && (
+              <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="glass-dark rounded-xl p-6 max-w-lg w-full space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-white">{t('adminDashboard.reply')}</h3>
+                    <button
+                      className="text-gray-400 hover:text-white"
+                      onClick={() => {
+                        setSupportReplyTarget(null)
+                        setSupportReplyText('')
+                      }}
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400 mb-2">{supportReplyTarget.message}</p>
+                    <textarea
+                      value={supportReplyText}
+                      onChange={(e) => setSupportReplyText(e.target.value)}
+                      rows={4}
+                      className="w-full bg-gray-900/50 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder={t('adminDashboard.replyPlaceholder') || 'Type reply...'}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <select
+                      value={supportStatusUpdate}
+                      onChange={(e) => setSupportStatusUpdate(e.target.value)}
+                      className="bg-gray-900/50 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">{t('adminDashboard.keepStatus') || 'Keep status'}</option>
+                      <option value="open">{t('adminDashboard.statusOpen')}</option>
+                      <option value="in_progress">{t('adminDashboard.statusInProgress')}</option>
+                      <option value="resolved">{t('adminDashboard.statusResolved')}</option>
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="btn-secondary"
+                        onClick={() => {
+                          setSupportReplyTarget(null)
+                          setSupportReplyText('')
+                        }}
+                      >
+                        {t('adminDashboard.cancel')}
+                      </button>
+                      <button
+                        className="btn-primary"
+                        onClick={async () => {
+                          try {
+                            await axios.put(
+                              `${API_URL}/admin/support/feedback/${supportReplyTarget.id}/reply`,
+                              {
+                                admin_reply: supportReplyText,
+                                status: supportStatusUpdate || undefined,
+                              },
+                              { headers: { Authorization: `Bearer ${token}` } }
+                            )
+                            setSupportReplyTarget(null)
+                            setSupportReplyText('')
+                            setSupportStatusUpdate('')
+                            fetchData(startDate, endDate)
+                          } catch (err) {
+                            console.error('Reply failed:', err)
+                          }
+                        }}
+                      >
+                        {t('adminDashboard.reply')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

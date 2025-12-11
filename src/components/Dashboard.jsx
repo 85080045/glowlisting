@@ -18,17 +18,36 @@ export default function Dashboard() {
   const [supportMessage, setSupportMessage] = useState('')
   const [supportSubmitting, setSupportSubmitting] = useState(false)
   const [supportResult, setSupportResult] = useState(null)
+  const [supportList, setSupportList] = useState([])
+  const [supportLoading, setSupportLoading] = useState(false)
 
   useEffect(() => {
     if (!user) {
       navigate('/login')
     } else {
       fetchUserInfo()
+      fetchSupportList()
     }
   }, [user, navigate])
 
   if (!user) {
     return null
+  }
+
+  const fetchSupportList = async () => {
+    try {
+      setSupportLoading(true)
+      const token = localStorage.getItem('glowlisting_token')
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/support/feedback`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setSupportList(res.data.feedback || [])
+    } catch (err) {
+      console.error('Fetch support list failed:', err)
+    } finally {
+      setSupportLoading(false)
+    }
   }
 
   const getPlanLabel = () => {
@@ -208,6 +227,7 @@ export default function Dashboard() {
               )
               setSupportResult('ok')
               setSupportMessage('')
+              fetchSupportList()
             } catch (err) {
               console.error('Submit feedback failed:', err)
               setSupportResult('error')
@@ -220,6 +240,37 @@ export default function Dashboard() {
           <Send className="h-4 w-4" />
           {supportSubmitting ? t('dashboard.supportSubmitting') : t('dashboard.supportSubmit')}
         </button>
+      </div>
+
+      {/* My feedback list */}
+      <div className="mt-6">
+        <h4 className="text-lg font-semibold text-white mb-3">{t('dashboard.myFeedback') || 'My feedback'}</h4>
+        {supportLoading && <p className="text-sm text-gray-400">{t('dashboard.loading') || 'Loading...'}</p>}
+        {!supportLoading && (
+          <div className="space-y-3">
+            {supportList.map((f) => (
+              <div key={f.id} className="border border-gray-800 rounded-lg p-3 bg-gray-900/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400">{f.created_at ? new Date(f.created_at).toLocaleString() : ''}</span>
+                  <span className="text-xs text-blue-300">{f.status || ''}</span>
+                </div>
+                <div className="text-sm text-gray-200 mt-1 whitespace-pre-wrap break-words">{f.message}</div>
+                {f.admin_reply && (
+                  <div className="mt-2 text-sm text-green-300 whitespace-pre-wrap break-words">
+                    <span className="font-semibold">{t('dashboard.adminReply') || 'Admin reply'}: </span>
+                    {f.admin_reply}
+                    <div className="text-xs text-gray-400 mt-1">
+                      {f.admin_reply_at ? new Date(f.admin_reply_at).toLocaleString() : ''}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            {supportList.length === 0 && (
+              <p className="text-sm text-gray-400">{t('dashboard.noData') || 'No feedback yet'}</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
 
