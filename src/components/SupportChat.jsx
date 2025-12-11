@@ -18,6 +18,8 @@ export default function SupportChat() {
   const [ws, setWs] = useState(null)
   const messagesEndRef = useRef(null)
   const chatContainerRef = useRef(null)
+  const messagesFetchedRef = useRef(false)
+  const fetchingRef = useRef(false)
 
   // 滚动到底部
   const scrollToBottom = () => {
@@ -33,26 +35,44 @@ export default function SupportChat() {
   // 获取消息列表
   const fetchMessages = async (silent = false) => {
     if (!user) return
+    // 防止重复请求
+    if (fetchingRef.current && !silent) return
     try {
-      if (!silent) setLoading(true)
+      if (!silent) {
+        fetchingRef.current = true
+        setLoading(true)
+      }
       const token = localStorage.getItem('glowlisting_token')
       const res = await axios.get(`${API_URL}/support/messages`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setMessages(res.data.messages || [])
+      messagesFetchedRef.current = true
     } catch (err) {
       console.error('Fetch messages failed:', err)
     } finally {
-      if (!silent) setLoading(false)
+      if (!silent) {
+        setLoading(false)
+        fetchingRef.current = false
+      }
     }
   }
 
   // WebSocket 连接（只在打开聊天窗口时连接）
   useEffect(() => {
-    if (!user || !isOpen) return
+    if (!user || !isOpen) {
+      if (ws) {
+        ws.close()
+        setWs(null)
+      }
+      return
+    }
 
     const token = localStorage.getItem('glowlisting_token')
     if (!token) return
+
+    // 如果已经有连接，不重复创建
+    if (ws && ws.readyState === WebSocket.OPEN) return
 
     try {
       const wsUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/^http/, 'ws')
@@ -80,19 +100,29 @@ export default function SupportChat() {
       setWs(socket)
       
       return () => {
-        socket.close()
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+          socket.close()
+        }
       }
     } catch (e) {
       console.warn('WS init failed:', e)
     }
   }, [user, isOpen])
 
-  // 打开聊天窗口时获取消息
+  // 打开聊天窗口时获取消息（只获取一次）
   useEffect(() => {
-    if (isOpen && user) {
+    if (isOpen && user && !messagesFetchedRef.current) {
       fetchMessages()
     }
   }, [isOpen, user])
+  
+  // 关闭窗口时重置标志
+  useEffect(() => {
+    if (!isOpen) {
+      messagesFetchedRef.current = false
+      setMessages([])
+    }
+  }, [isOpen])
 
   // 发送消息
   const handleSend = async () => {
@@ -197,7 +227,8 @@ export default function SupportChat() {
                     <p>{t('chat.noMessages') || 'No messages yet. Start a conversation!'}</p>
                   </div>
                 ) : (
-                  messages.map((msg) => (
+                  <>
+                    {messages.map((msg) => (
                     <div
                       key={msg.id}
                       className={`flex ${msg.is_admin ? 'justify-end' : 'justify-start'}`}
@@ -215,9 +246,10 @@ export default function SupportChat() {
                         </p>
                       </div>
                     </div>
-                  ))
+                  ))}
+                    <div ref={messagesEndRef} />
+                  </>
                 )}
-                <div ref={messagesEndRef} />
               </div>
 
               {/* 输入框 */}
