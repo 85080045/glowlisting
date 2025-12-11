@@ -1415,6 +1415,95 @@ app.get('/api/admin/billing/summary', authMiddleware, adminMiddleware, async (re
   }
 })
 
+// Admin Support: feedback list
+app.get('/api/admin/support/feedback', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Support requires database' })
+    const { status, category, limit = 100, offset = 0 } = req.query
+    const clauses = []
+    const params = []
+    if (status) {
+      clauses.push(`f.status = $${params.length + 1}`)
+      params.push(status)
+    }
+    if (category) {
+      clauses.push(`f.category = $${params.length + 1}`)
+      params.push(category)
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    const rows = await query(
+      `SELECT f.*, u.email AS user_email, u.name AS user_name
+       FROM feedback f
+       LEFT JOIN users u ON u.id = f.user_id
+       ${where}
+       ORDER BY f.created_at DESC
+       LIMIT ${Number(limit) || 100} OFFSET ${Number(offset) || 0}`,
+      params
+    )
+    const count = await query(`SELECT COUNT(*) FROM feedback f ${where}`, params)
+    res.json({ success: true, feedback: rows.rows, total: Number(count.rows[0].count) })
+  } catch (error) {
+    console.error('Admin support feedback error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Admin Support: update feedback status/note
+app.put('/api/admin/support/feedback/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Support requires database' })
+    const { id } = req.params
+    const { status, internal_note } = req.body
+    await query(
+      `UPDATE feedback 
+       SET status = COALESCE($1, status), internal_note = COALESCE($2, internal_note), updated_at = NOW()
+       WHERE id = $3`,
+      [status, internal_note, id]
+    )
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Admin support feedback update error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Admin Support: error overview (failed jobs)
+app.get('/api/admin/support/errors', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Support requires database' })
+    const { days = 14, limit = 20 } = req.query
+    const since = new Date(Date.now() - Number(days || 14) * 24 * 60 * 60 * 1000)
+
+    const failedByDay = await query(
+      `SELECT DATE(created_at) AS date, COUNT(*) AS failed
+       FROM jobs
+       WHERE status = 'failed' AND created_at >= $1
+       GROUP BY DATE(created_at)
+       ORDER BY date DESC`,
+      [since]
+    )
+
+    const recentFailed = await query(
+      `SELECT j.id, j.user_id, j.error_message, j.processed_images, j.total_images, j.created_at, j.finished_at, u.email, u.name
+       FROM jobs j
+       LEFT JOIN users u ON u.id = j.user_id
+       WHERE j.status = 'failed' AND j.created_at >= $1
+       ORDER BY j.created_at DESC
+       LIMIT ${Number(limit) || 20}`,
+      [since]
+    )
+
+    res.json({
+      success: true,
+      failedByDay: failedByDay.rows,
+      recentFailed: recentFailed.rows,
+    })
+  } catch (error) {
+    console.error('Admin support errors error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Admin 高级统计（留存率、LTV等）
 app.get('/api/admin/advanced-stats', authMiddleware, adminMiddleware, async (req, res) => {
   try {
