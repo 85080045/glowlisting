@@ -31,10 +31,10 @@ export default function SupportChat() {
   }, [messages, isOpen, isMinimized])
 
   // 获取消息列表
-  const fetchMessages = async () => {
+  const fetchMessages = async (silent = false) => {
     if (!user) return
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const token = localStorage.getItem('glowlisting_token')
       const res = await axios.get(`${API_URL}/support/messages`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -43,13 +43,13 @@ export default function SupportChat() {
     } catch (err) {
       console.error('Fetch messages failed:', err)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
-  // WebSocket 连接
+  // WebSocket 连接（只在打开聊天窗口时连接）
   useEffect(() => {
-    if (!user) return
+    if (!user || !isOpen) return
 
     const token = localStorage.getItem('glowlisting_token')
     if (!token) return
@@ -60,14 +60,14 @@ export default function SupportChat() {
       
       socket.onopen = () => {
         console.log('SupportChat WS connected')
-        if (isOpen) fetchMessages()
       }
       
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
           if (data.type === 'message_new' || data.type === 'message_reply') {
-            fetchMessages()
+            // 静默刷新消息（不显示 loading）
+            fetchMessages(true)
           }
         } catch (e) {
           console.warn('WS parse error:', e)
@@ -107,7 +107,8 @@ export default function SupportChat() {
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setNewMessage('')
-      fetchMessages()
+      // 静默刷新（不显示 loading）
+      fetchMessages(true)
     } catch (err) {
       console.error('Send message failed:', err)
       alert(err.response?.data?.error || '发送失败，请重试')
@@ -143,7 +144,7 @@ export default function SupportChat() {
             setIsOpen(true)
             setIsMinimized(false)
           }}
-          className="fixed bottom-6 left-6 z-50 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+          className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
           aria-label={t('chat.support') || 'Support'}
         >
           <MessageCircle className="h-6 w-6" />
@@ -154,7 +155,7 @@ export default function SupportChat() {
       {isOpen && (
         <div
           ref={chatContainerRef}
-          className={`fixed bottom-6 left-6 z-50 w-96 max-w-[calc(100vw-3rem)] ${
+          className={`fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-3rem)] ${
             isMinimized ? 'h-16' : 'h-[600px]'
           } bg-gray-900 border border-gray-700 rounded-lg shadow-2xl flex flex-col transition-all duration-300`}
         >

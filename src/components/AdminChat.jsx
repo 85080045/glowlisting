@@ -16,7 +16,8 @@ export default function AdminChat() {
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [conversationsLoading, setConversationsLoading] = useState(false)
+  const [messagesLoading, setMessagesLoading] = useState(false)
   const [ws, setWs] = useState(null)
   const messagesEndRef = useRef(null)
 
@@ -32,10 +33,10 @@ export default function AdminChat() {
   }, [messages, isOpen, isMinimized, selectedUserId])
 
   // 获取对话列表
-  const fetchConversations = async () => {
+  const fetchConversations = async (silent = false) => {
     if (!user || !user.isAdmin) return
     try {
-      setLoading(true)
+      if (!silent) setConversationsLoading(true)
       const token = localStorage.getItem('glowlisting_token')
       const res = await axios.get(`${API_URL}/admin/support/conversations`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -44,15 +45,15 @@ export default function AdminChat() {
     } catch (err) {
       console.error('Fetch conversations failed:', err)
     } finally {
-      setLoading(false)
+      if (!silent) setConversationsLoading(false)
     }
   }
 
   // 获取指定用户的消息
-  const fetchMessages = async (userId) => {
+  const fetchMessages = async (userId, silent = false) => {
     if (!userId) return
     try {
-      setLoading(true)
+      if (!silent) setMessagesLoading(true)
       const token = localStorage.getItem('glowlisting_token')
       const res = await axios.get(`${API_URL}/admin/support/messages/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -61,13 +62,13 @@ export default function AdminChat() {
     } catch (err) {
       console.error('Fetch messages failed:', err)
     } finally {
-      setLoading(false)
+      if (!silent) setMessagesLoading(false)
     }
   }
 
-  // WebSocket 连接
+  // WebSocket 连接（只在打开聊天窗口时连接）
   useEffect(() => {
-    if (!user || !user.isAdmin) return
+    if (!user || !user.isAdmin || !isOpen) return
 
     const token = localStorage.getItem('glowlisting_token')
     if (!token) return
@@ -78,16 +79,17 @@ export default function AdminChat() {
       
       socket.onopen = () => {
         console.log('AdminChat WS connected')
-        if (isOpen) fetchConversations()
       }
       
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
           if (data.type === 'message_new' || data.type === 'message_reply') {
-            fetchConversations()
+            // 静默刷新对话列表（不显示 loading）
+            fetchConversations(true)
             if (selectedUserId && (data.userId === selectedUserId || data.type === 'message_reply')) {
-              fetchMessages(selectedUserId)
+              // 静默刷新消息（不显示 loading）
+              fetchMessages(selectedUserId, true)
             }
           }
         } catch (e) {
@@ -135,8 +137,9 @@ export default function AdminChat() {
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setNewMessage('')
-      fetchMessages(selectedUserId)
-      fetchConversations()
+      // 静默刷新（不显示 loading）
+      fetchMessages(selectedUserId, true)
+      fetchConversations(true)
     } catch (err) {
       console.error('Send message failed:', err)
       alert(err.response?.data?.error || '发送失败，请重试')
@@ -174,7 +177,7 @@ export default function AdminChat() {
             setIsOpen(true)
             setIsMinimized(false)
           }}
-          className="fixed bottom-6 left-6 z-50 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+          className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
           aria-label={t('chat.adminSupport') || 'Admin Support'}
         >
           <MessageCircle className="h-6 w-6" />
@@ -184,7 +187,7 @@ export default function AdminChat() {
       {/* 聊天窗口 */}
       {isOpen && (
         <div
-          className={`fixed bottom-6 left-6 z-50 w-[800px] max-w-[calc(100vw-3rem)] ${
+          className={`fixed bottom-6 right-6 z-50 w-[800px] max-w-[calc(100vw-3rem)] ${
             isMinimized ? 'h-16' : 'h-[700px]'
           } bg-gray-900 border border-gray-700 rounded-lg shadow-2xl flex transition-all duration-300`}
         >
@@ -198,7 +201,7 @@ export default function AdminChat() {
                 </h3>
               </div>
               <div className="flex-1 overflow-y-auto">
-                {loading && conversations.length === 0 ? (
+                {conversationsLoading && conversations.length === 0 ? (
                   <div className="text-center text-gray-400 py-8 text-sm">
                     {t('chat.loading') || 'Loading...'}
                   </div>
@@ -272,7 +275,7 @@ export default function AdminChat() {
                   <>
                     {/* 消息列表 */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-900">
-                      {loading && messages.length === 0 ? (
+                      {messagesLoading && messages.length === 0 ? (
                         <div className="text-center text-gray-400 py-8">
                           {t('chat.loading') || 'Loading...'}
                         </div>
