@@ -29,7 +29,7 @@ export default function Benefits() {
   ]
 
   return (
-    <section className="py-24 px-4 relative">
+    <section className="py-16 md:py-20 px-4 relative">
       <div className="absolute inset-0 tech-grid opacity-20"></div>
       <div className="relative max-w-7xl mx-auto">
         <ScrollReveal variant="slideUpGlow">

@@ -29,7 +29,7 @@ export default function Hero() {
   }
   
   return (
-    <section className="relative py-24 px-4 overflow-hidden min-h-screen flex items-center">
+    <section className="relative py-16 md:py-20 px-4 overflow-hidden min-h-screen flex items-center">
       {/* 全屏渐变背景动画 - 参考科技公司设计 */}
       <div className="absolute inset-0 w-full h-full z-0">
         {/* 主渐变层 - 蓝色到紫色到粉色 */}

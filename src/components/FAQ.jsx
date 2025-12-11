@@ -63,7 +63,7 @@ export default function FAQ() {
   }
 
   return (
-    <section id="faq" className="py-24 px-4 relative">
+    <section id="faq" className="py-16 md:py-20 px-4 relative">
       <div className="absolute inset-0 tech-grid opacity-10"></div>
       <div className="relative max-w-4xl mx-auto">
         <ScrollReveal variant="slideUpGlow">

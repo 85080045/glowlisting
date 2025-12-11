@@ -305,7 +305,7 @@ export default function UploadSection({
   }
 
   return (
-    <section className="py-12 md:py-24 px-4 md:px-6 relative overflow-hidden">
+    <section className="py-10 md:py-18 px-4 md:px-6 relative overflow-hidden">
       <div className="absolute inset-0 tech-grid opacity-10"></div>
       <div className="relative max-w-6xl mx-auto">
         <div className="text-center mb-16">

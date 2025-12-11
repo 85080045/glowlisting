@@ -200,7 +200,7 @@ export default function Pricing() {
   ]
 
   return (
-    <section id="pricing" className="py-24 px-4 relative">
+    <section id="pricing" className="py-16 md:py-20 px-4 relative">
       <div className="absolute inset-0 tech-grid opacity-10"></div>
       <div className="relative max-w-7xl mx-auto">
         <ScrollReveal variant="slideUpGlow">
