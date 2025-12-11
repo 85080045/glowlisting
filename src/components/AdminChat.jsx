@@ -20,6 +20,8 @@ export default function AdminChat() {
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [ws, setWs] = useState(null)
   const messagesEndRef = useRef(null)
+  const conversationsFetchedRef = useRef(false)
+  const fetchingRef = useRef(false)
 
   // 滚动到底部
   const scrollToBottom = () => {
@@ -35,17 +37,26 @@ export default function AdminChat() {
   // 获取对话列表
   const fetchConversations = async (silent = false) => {
     if (!user || !user.isAdmin) return
+    // 防止重复请求
+    if (fetchingRef.current && !silent) return
     try {
-      if (!silent) setConversationsLoading(true)
+      if (!silent) {
+        fetchingRef.current = true
+        setConversationsLoading(true)
+      }
       const token = localStorage.getItem('glowlisting_token')
       const res = await axios.get(`${API_URL}/admin/support/conversations`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setConversations(res.data.conversations || [])
+      conversationsFetchedRef.current = true
     } catch (err) {
       console.error('Fetch conversations failed:', err)
     } finally {
-      if (!silent) setConversationsLoading(false)
+      if (!silent) {
+        setConversationsLoading(false)
+        fetchingRef.current = false
+      }
     }
   }
 
@@ -68,10 +79,19 @@ export default function AdminChat() {
 
   // WebSocket 连接（只在打开聊天窗口时连接）
   useEffect(() => {
-    if (!user || !user.isAdmin || !isOpen) return
+    if (!user || !user.isAdmin || !isOpen) {
+      if (ws) {
+        ws.close()
+        setWs(null)
+      }
+      return
+    }
 
     const token = localStorage.getItem('glowlisting_token')
     if (!token) return
+
+    // 如果已经有连接，不重复创建
+    if (ws && ws.readyState === WebSocket.OPEN) return
 
     try {
       const wsUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/^http/, 'ws')
@@ -103,19 +123,30 @@ export default function AdminChat() {
       setWs(socket)
       
       return () => {
-        socket.close()
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+          socket.close()
+        }
       }
     } catch (e) {
       console.warn('WS init failed:', e)
     }
-  }, [user, isOpen, selectedUserId])
+  }, [user, isOpen])
 
-  // 打开聊天窗口时获取对话列表
+  // 打开聊天窗口时获取对话列表（只获取一次）
   useEffect(() => {
-    if (isOpen && user && user.isAdmin) {
+    if (isOpen && user && user.isAdmin && !conversationsFetchedRef.current) {
       fetchConversations()
     }
   }, [isOpen, user])
+  
+  // 关闭窗口时重置标志
+  useEffect(() => {
+    if (!isOpen) {
+      conversationsFetchedRef.current = false
+      setSelectedUserId(null)
+      setMessages([])
+    }
+  }, [isOpen])
 
   // 选择用户时获取消息
   useEffect(() => {
@@ -201,7 +232,7 @@ export default function AdminChat() {
                 </h3>
               </div>
               <div className="flex-1 overflow-y-auto">
-                {conversationsLoading && conversations.length === 0 ? (
+                {conversationsLoading ? (
                   <div className="text-center text-gray-400 py-8 text-sm">
                     {t('chat.loading') || 'Loading...'}
                   </div>
