@@ -1432,9 +1432,10 @@ app.get('/api/admin/support/feedback', authMiddleware, adminMiddleware, async (r
     }
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
     const rows = await query(
-      `SELECT f.*, u.email AS user_email, u.name AS user_name
+      `SELECT f.*, u.email AS user_email, u.name AS user_name, admin_u.email AS admin_email, admin_u.name AS admin_name
        FROM feedback f
        LEFT JOIN users u ON u.id = f.user_id
+       LEFT JOIN users admin_u ON admin_u.id = f.admin_reply_by
        ${where}
        ORDER BY f.created_at DESC
        LIMIT ${Number(limit) || 100} OFFSET ${Number(offset) || 0}`,
@@ -1463,6 +1464,49 @@ app.put('/api/admin/support/feedback/:id', authMiddleware, adminMiddleware, asyn
     res.json({ success: true })
   } catch (error) {
     console.error('Admin support feedback update error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Admin Support: reply to feedback
+app.put('/api/admin/support/feedback/:id/reply', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Support requires database' })
+    const { id } = req.params
+    const { admin_reply, status } = req.body
+    if (!admin_reply) return res.status(400).json({ error: 'Reply is required' })
+    await query(
+      `UPDATE feedback
+       SET admin_reply = $1,
+           admin_reply_at = NOW(),
+           admin_reply_by = $2,
+           status = COALESCE($3, status),
+           updated_at = NOW()
+       WHERE id = $4`,
+      [admin_reply, req.userId, status || null, id]
+    )
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Admin support feedback reply error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// User: list own feedback (to see admin replies)
+app.get('/api/support/feedback', authMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Feedback requires database' })
+    const rows = await query(
+      `SELECT id, category, message, status, internal_note, admin_reply, admin_reply_at, created_at, updated_at
+       FROM feedback
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 200`,
+      [req.userId]
+    )
+    res.json({ success: true, feedback: rows.rows })
+  } catch (error) {
+    console.error('Get my feedback error:', error)
     res.status(500).json({ error: error.message })
   }
 })
