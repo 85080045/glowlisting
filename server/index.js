@@ -1652,20 +1652,39 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
 app.get('/api/admin/support/conversations', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     if (!useDb) return res.status(400).json({ error: 'Messages require database' })
+    
+    // 使用窗口函数优化查询
     const rows = await query(
-      `SELECT DISTINCT ON (m.user_id)
-         m.user_id,
+      `WITH latest_messages AS (
+         SELECT DISTINCT ON (user_id)
+           user_id,
+           message AS last_message,
+           created_at AS last_message_at
+         FROM messages
+         ORDER BY user_id, created_at DESC
+       ),
+       message_counts AS (
+         SELECT 
+           user_id,
+           COUNT(*) FILTER (WHERE is_admin = FALSE) AS user_message_count,
+           COUNT(*) FILTER (WHERE is_admin = TRUE) AS admin_message_count
+         FROM messages
+         GROUP BY user_id
+       )
+       SELECT 
+         lm.user_id,
          u.email AS user_email,
          u.name AS user_name,
-         (SELECT message FROM messages WHERE user_id = m.user_id ORDER BY created_at DESC LIMIT 1) AS last_message,
-         (SELECT created_at FROM messages WHERE user_id = m.user_id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
-         (SELECT COUNT(*) FROM messages WHERE user_id = m.user_id AND is_admin = FALSE) AS user_message_count,
-         (SELECT COUNT(*) FROM messages WHERE user_id = m.user_id AND is_admin = TRUE) AS admin_message_count
-       FROM messages m
-       LEFT JOIN users u ON u.id = m.user_id
-       ORDER BY m.user_id, m.created_at DESC`
+         lm.last_message,
+         lm.last_message_at,
+         COALESCE(mc.user_message_count, 0) AS user_message_count,
+         COALESCE(mc.admin_message_count, 0) AS admin_message_count
+       FROM latest_messages lm
+       LEFT JOIN users u ON u.id = lm.user_id
+       LEFT JOIN message_counts mc ON mc.user_id = lm.user_id
+       ORDER BY lm.last_message_at DESC`
     )
-    res.json({ success: true, conversations: rows.rows })
+    res.json({ success: true, conversations: rows.rows || [] })
   } catch (error) {
     console.error('Get conversations error:', error)
     res.status(500).json({ error: error.message })
