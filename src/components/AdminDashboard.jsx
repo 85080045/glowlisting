@@ -52,6 +52,10 @@ export default function AdminDashboard() {
   const [usageAction, setUsageAction] = useState('') // generate/download/all
   const [auditLogs, setAuditLogs] = useState([])
   const [advancedStats, setAdvancedStats] = useState(null)
+  const [billingSubs, setBillingSubs] = useState([])
+  const [billingSummary, setBillingSummary] = useState({ revenueByPlan: [], revenueDaily: [], topCustomers: [] })
+  const [billingRange, setBillingRange] = useState('30d')
+  const [billingLoading, setBillingLoading] = useState(false)
   const [resetPasswordUser, setResetPasswordUser] = useState(null)
   const [resetPasswordValue, setResetPasswordValue] = useState('')
   const [userSearch, setUserSearch] = useState('')
@@ -136,6 +140,23 @@ export default function AdminDashboard() {
       setUsage(usageRes.data.usage || [])
       setAuditLogs(auditRes.data.logs || [])
       setAdvancedStats(advancedRes.data.stats || null)
+
+      // billing 数据
+      setBillingLoading(true)
+      try {
+        const [subsRes, summaryRes] = await Promise.all([
+          axios.get(`${API_URL}/admin/billing/subscriptions`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`${API_URL}/admin/billing/summary`, { headers: { Authorization: `Bearer ${token}` }, params: { range: billingRange } }),
+        ])
+        setBillingSubs(subsRes.data.subscriptions || [])
+        setBillingSummary(summaryRes.data || { revenueByPlan: [], revenueDaily: [], topCustomers: [] })
+      } catch (e) {
+        console.warn('Failed to fetch billing data:', e)
+        setBillingSubs([])
+        setBillingSummary({ revenueByPlan: [], revenueDaily: [], topCustomers: [] })
+      } finally {
+        setBillingLoading(false)
+      }
     } catch (error) {
       console.error('Failed to fetch admin data:', error)
       console.error('Error response:', error.response?.data)
@@ -389,6 +410,16 @@ export default function AdminDashboard() {
           }`}
         >
           {t('adminDashboard.usage')}
+        </button>
+        <button
+          onClick={() => setActiveTab('billing')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'billing'
+              ? 'bg-blue-600 text-white'
+              : 'glass-dark text-gray-300 hover:bg-gray-800'
+          }`}
+        >
+          {t('adminDashboard.billing')}
         </button>
         </div>
 
@@ -1264,6 +1295,129 @@ export default function AdminDashboard() {
                     {t('adminDashboard.cancel')}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Billing */}
+        {activeTab === 'billing' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">{t('adminDashboard.billing')}</h2>
+              <select
+                value={billingRange}
+                onChange={(e) => {
+                  setBillingRange(e.target.value)
+                  // 触发重新获取
+                  fetchData(startDate, endDate)
+                }}
+                className="bg-gray-900/50 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="7d">7d</option>
+                <option value="30d">30d</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+
+            {/* Revenue summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="glass-dark rounded-xl p-4">
+                <h3 className="text-sm text-gray-400 mb-2">{t('adminDashboard.revenueByPlan')}</h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {(billingSummary.revenueByPlan || []).map((r, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-sm text-white">
+                      <span className="text-gray-300">{r.plan || 'N/A'}</span>
+                      <span className="font-semibold">${Number(r.total || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {(billingSummary.revenueByPlan || []).length === 0 && (
+                    <div className="text-sm text-gray-400">{t('adminDashboard.noData')}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="glass-dark rounded-xl p-4">
+                <h3 className="text-sm text-gray-400 mb-2">{t('adminDashboard.revenueDaily')}</h3>
+                <div className="space-y-1 max-h-48 overflow-y-auto text-sm text-white">
+                  {(billingSummary.revenueDaily || []).map((d, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <span className="text-gray-300">{d.date}</span>
+                      <span className="font-semibold">${Number(d.total || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {(billingSummary.revenueDaily || []).length === 0 && (
+                    <div className="text-sm text-gray-400">{t('adminDashboard.noData')}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="glass-dark rounded-xl p-4">
+                <h3 className="text-sm text-gray-400 mb-2">{t('adminDashboard.topCustomers')}</h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto text-sm text-white">
+                  {(billingSummary.topCustomers || []).map((c, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span>{c.name || c.email || '-'}</span>
+                        <span className="text-xs text-gray-400">{c.email || '-'}</span>
+                      </div>
+                      <span className="font-semibold">${Number(c.total || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {(billingSummary.topCustomers || []).length === 0 && (
+                    <div className="text-sm text-gray-400">{t('adminDashboard.noData')}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Subscriptions table */}
+            <div className="glass-dark rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white">{t('adminDashboard.subscriptions')}</h3>
+                {billingLoading && <span className="text-xs text-gray-400">{t('adminDashboard.loading')}</span>}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-800/50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.user')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.plan')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Stripe Sub</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.status')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.periodEnd')}</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">{t('adminDashboard.cancelAt')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {billingSubs.map((s) => (
+                      <tr key={s.id} className="hover:bg-gray-800/30 transition-colors">
+                        <td className="px-4 py-3 text-sm text-white">
+                          <div className="flex flex-col">
+                            <span>{s.name || s.email || '-'}</span>
+                            <span className="text-xs text-gray-400">{s.email || '-'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{s.plan_name || s.plan_type || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{s.stripe_subscription_id || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">{s.status || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">
+                          {s.current_period_end ? new Date(s.current_period_end).toLocaleString() : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-300">
+                          {s.cancel_at_period_end ? t('adminDashboard.yes') : t('adminDashboard.no')}
+                        </td>
+                      </tr>
+                    ))}
+                    {billingSubs.length === 0 && (
+                      <tr>
+                        <td className="px-4 py-6 text-center text-gray-400 text-sm" colSpan={6}>
+                          {t('adminDashboard.noData')}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
