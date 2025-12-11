@@ -67,14 +67,6 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const app = express()
-const server = app.listen(PORT, () => {
-  console.log(`🚀 GlowListing API 服务器运行在 http://localhost:${PORT}`)
-  console.log(`📝 已配置 nanobanna API 进行图像增强`)
-  console.log(`📧 SMTP配置: ${process.env.SMTP_HOST || '未配置'}`)
-  if (useDb) {
-    console.log(`🗄️  数据库连接: 已配置`)
-  }
-})
 const PORT = process.env.PORT || 3001
 
 // Helper wrappers to support DB or in-memory
