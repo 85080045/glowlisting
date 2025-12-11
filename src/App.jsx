@@ -38,6 +38,8 @@ import AdminDashboard from './components/AdminDashboard'
 import AboutUs from './components/AboutUs'
 import Blog from './components/Blog'
 import Reviews from './components/Reviews'
+import SupportChat from './components/SupportChat'
+import AdminChat from './components/AdminChat'
 import PrivacyPolicy from './components/PrivacyPolicy'
 import HelpCenter from './components/HelpCenter'
 import MediaInquiry from './components/MediaInquiry'
@@ -133,6 +135,9 @@ function App() {
               </>
             } />
           </Routes>
+          {/* 全局聊天组件 */}
+          <SupportChat />
+          <AdminChat />
         </div>
       </AuthProvider>
     </LanguageProvider>

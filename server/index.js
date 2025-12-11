@@ -16,10 +16,13 @@ import sgMail from '@sendgrid/mail'
 import bcrypt from 'bcryptjs'
 import { query } from './db/client.js'
 import geoip from 'geoip-lite'
+import { WebSocketServer } from 'ws'
 
 // 加载环境变量
 dotenv.config()
 const useDb = !!process.env.DATABASE_URL
+const JWT_SECRET = process.env.JWT_SECRET || 'glowlisting-stable-secret-change-in-prod'
+const wsClients = new Map() // userId -> Set<WebSocket>
 import {
   authMiddleware,
   registerUser,
@@ -64,6 +67,14 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const app = express()
+const server = app.listen(PORT, () => {
+  console.log(`🚀 GlowListing API 服务器运行在 http://localhost:${PORT}`)
+  console.log(`📝 已配置 nanobanna API 进行图像增强`)
+  console.log(`📧 SMTP配置: ${process.env.SMTP_HOST || '未配置'}`)
+  if (useDb) {
+    console.log(`🗄️  数据库连接: 已配置`)
+  }
+})
 const PORT = process.env.PORT || 3001
 
 // Helper wrappers to support DB or in-memory
@@ -1468,7 +1479,7 @@ app.put('/api/admin/support/feedback/:id', authMiddleware, adminMiddleware, asyn
   }
 })
 
-// Admin Support: reply to feedback
+// Admin Support: reply to feedback (broadcast to user)
 app.put('/api/admin/support/feedback/:id/reply', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     if (!useDb) return res.status(400).json({ error: 'Support requires database' })
@@ -1485,6 +1496,19 @@ app.put('/api/admin/support/feedback/:id/reply', authMiddleware, adminMiddleware
        WHERE id = $4`,
       [admin_reply, req.userId, status || null, id]
     )
+
+    // 获取反馈所属用户，用于推送
+    const fb = await query(`SELECT user_id FROM feedback WHERE id = $1`, [id])
+    const targetUserId = fb.rows[0]?.user_id
+    if (targetUserId) {
+      wsBroadcastToUser(targetUserId, {
+        type: 'feedback_reply',
+        feedbackId: id,
+        reply: admin_reply,
+        status: status || null,
+      })
+    }
+
     res.json({ success: true })
   } catch (error) {
     console.error('Admin support feedback reply error:', error)
@@ -1567,6 +1591,135 @@ app.post('/api/support/feedback', authMiddleware, async (req, res) => {
     res.json({ success: true })
   } catch (error) {
     console.error('Submit feedback error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ========== 聊天式消息系统 ==========
+
+// 用户：获取自己的消息列表
+app.get('/api/support/messages', authMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Messages require database' })
+    const rows = await query(
+      `SELECT id, user_id, is_admin, message, created_at
+       FROM messages
+       WHERE user_id = $1
+       ORDER BY created_at ASC
+       LIMIT 500`,
+      [req.userId]
+    )
+    res.json({ success: true, messages: rows.rows })
+  } catch (error) {
+    console.error('Get messages error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 用户：发送消息
+app.post('/api/support/messages', authMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Messages require database' })
+    const { message } = req.body
+    if (!message || !message.trim()) return res.status(400).json({ error: 'Message is required' })
+
+    const result = await query(
+      `INSERT INTO messages (user_id, is_admin, message)
+       VALUES ($1, FALSE, $2)
+       RETURNING id, user_id, is_admin, message, created_at`,
+      [req.userId, message.trim()]
+    )
+
+    const newMsg = result.rows[0]
+
+    // 广播给所有管理员（新消息通知）
+    wsBroadcastToAdmins({
+      type: 'message_new',
+      messageId: newMsg.id,
+      userId: req.userId,
+      message: newMsg.message,
+      createdAt: newMsg.created_at,
+    })
+
+    res.json({ success: true, message: newMsg })
+  } catch (error) {
+    console.error('Send message error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 管理员：获取所有用户的对话列表（按用户分组，显示最新消息）
+app.get('/api/admin/support/conversations', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Messages require database' })
+    const rows = await query(
+      `SELECT DISTINCT ON (m.user_id)
+         m.user_id,
+         u.email AS user_email,
+         u.name AS user_name,
+         (SELECT message FROM messages WHERE user_id = m.user_id ORDER BY created_at DESC LIMIT 1) AS last_message,
+         (SELECT created_at FROM messages WHERE user_id = m.user_id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
+         (SELECT COUNT(*) FROM messages WHERE user_id = m.user_id AND is_admin = FALSE) AS user_message_count,
+         (SELECT COUNT(*) FROM messages WHERE user_id = m.user_id AND is_admin = TRUE) AS admin_message_count
+       FROM messages m
+       LEFT JOIN users u ON u.id = m.user_id
+       ORDER BY m.user_id, m.created_at DESC`
+    )
+    res.json({ success: true, conversations: rows.rows })
+  } catch (error) {
+    console.error('Get conversations error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 管理员：获取指定用户的所有消息
+app.get('/api/admin/support/messages/:userId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Messages require database' })
+    const { userId } = req.params
+    const rows = await query(
+      `SELECT id, user_id, is_admin, message, created_at
+       FROM messages
+       WHERE user_id = $1
+       ORDER BY created_at ASC
+       LIMIT 500`,
+      [userId]
+    )
+    res.json({ success: true, messages: rows.rows })
+  } catch (error) {
+    console.error('Get user messages error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 管理员：回复用户消息
+app.post('/api/admin/support/messages/:userId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Messages require database' })
+    const { userId } = req.params
+    const { message } = req.body
+    if (!message || !message.trim()) return res.status(400).json({ error: 'Message is required' })
+
+    const result = await query(
+      `INSERT INTO messages (user_id, is_admin, message)
+       VALUES ($1, TRUE, $2)
+       RETURNING id, user_id, is_admin, message, created_at`,
+      [userId, message.trim()]
+    )
+
+    const newMsg = result.rows[0]
+
+    // 广播给对应用户（管理员回复通知）
+    wsBroadcastToUser(userId, {
+      type: 'message_reply',
+      messageId: newMsg.id,
+      message: newMsg.message,
+      createdAt: newMsg.created_at,
+    })
+
+    res.json({ success: true, message: newMsg })
+  } catch (error) {
+    console.error('Admin reply error:', error)
     res.status(500).json({ error: error.message })
   }
 })
@@ -2552,7 +2705,7 @@ B. 室外照片 (Facade/Garden)：
         console.error('Error status:', apiError.response?.status)
         console.error('Error headers:', apiError.response?.headers)
         
-        // job 标记失败
+        // job 标记失败 + 推送
         if (useDb && jobId) {
           try {
             await query(
@@ -2561,6 +2714,13 @@ B. 室外照片 (Facade/Garden)：
                WHERE id = $2`,
               [apiError.message || 'enhance failed', jobId]
             )
+            if (userId) {
+              wsBroadcastToUser(userId, {
+                type: 'job_failed',
+                jobId,
+                error: apiError.message || 'enhance failed'
+              })
+            }
           } catch (jobErr) {
             console.error('更新 job 失败状态出错:', jobErr)
           }
@@ -3275,6 +3435,30 @@ if (useDb) {
         console.warn('⚠️ 图片历史迁移检查失败（不影响应用启动）:', migrationError.message)
       }
       
+      // 检查并运行 messages 表迁移
+      try {
+        const messagesTableCheck = await query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'messages'
+          )
+        `)
+        const messagesTableExists = messagesTableCheck.rows[0]?.exists
+        
+        if (!messagesTableExists) {
+          console.log('🔄 检测到需要运行 messages 表迁移...')
+          const migrationPath = path.join(__dirname, 'db', 'migrations', '010_messages.sql')
+          if (fs.existsSync(migrationPath)) {
+            const migrationSQL = fs.readFileSync(migrationPath, 'utf8')
+            await query(migrationSQL)
+            console.log('✅ 迁移完成: messages 表已创建')
+          }
+        }
+      } catch (migrationError) {
+        console.warn('⚠️ messages 表迁移检查失败（不影响应用启动）:', migrationError.message)
+      }
+      
       // 启动时清理一次旧图片
       await cleanupOldImages()
       
@@ -3287,12 +3471,87 @@ if (useDb) {
   })()
 }
 
-app.listen(PORT, () => {
+const wss = new WebSocketServer({ noServer: true })
+
+// Broadcast helper
+const wsSend = (ws, data) => {
+  try {
+    ws.send(JSON.stringify(data))
+  } catch (e) {
+    console.error('WS send error:', e)
+  }
+}
+
+const wsBroadcastToUser = (userId, payload) => {
+  const set = wsClients.get(userId)
+  if (!set) return
+  for (const ws of set) {
+    if (ws.readyState === ws.OPEN) {
+      wsSend(ws, payload)
+    }
+  }
+}
+
+// 广播给所有管理员
+const wsBroadcastToAdmins = async (payload) => {
+  if (!useDb) return
+  try {
+    const adminRows = await query(`SELECT id FROM users WHERE is_admin = TRUE`)
+    for (const row of adminRows.rows) {
+      wsBroadcastToUser(row.id, payload)
+    }
+  } catch (e) {
+    console.error('wsBroadcastToAdmins error:', e)
+  }
+}
+
+// Upgrade server to handle WS
+const server = app.listen(PORT, () => {
   console.log(`🚀 GlowListing API 服务器运行在 http://localhost:${PORT}`)
   console.log(`📝 已配置 nanobanna API 进行图像增强`)
   console.log(`📧 SMTP配置: ${process.env.SMTP_HOST || '未配置'}`)
   if (useDb) {
     console.log(`🗄️  数据库连接: 已配置`)
   }
+})
+
+server.on('upgrade', (req, socket, head) => {
+  // Auth via query ?token= or header Authorization
+  const url = new URL(req.url, `http://${req.headers.host}`)
+  const token = url.searchParams.get('token') || (req.headers.authorization ? req.headers.authorization.split(' ')[1] : null)
+  if (!token) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
+    socket.destroy()
+    return
+  }
+  let userId = null
+  try {
+    const jwt = JSON.parse(JSON.stringify({})) // placeholder to satisfy lint; actual import below
+  } catch (e) {}
+  import('jsonwebtoken').then(({ default: jwt }) => {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET)
+      userId = decoded.userId
+    } catch (e) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
+      socket.destroy()
+      return
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      if (!wsClients.has(userId)) wsClients.set(userId, new Set())
+      wsClients.get(userId).add(ws)
+      ws.on('close', () => {
+        const set = wsClients.get(userId)
+        if (set) {
+          set.delete(ws)
+          if (set.size === 0) wsClients.delete(userId)
+        }
+      })
+      wsSend(ws, { type: 'connected', userId })
+    })
+  }).catch(() => {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
+    socket.destroy()
+  })
 })
 

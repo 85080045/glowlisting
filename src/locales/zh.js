@@ -117,6 +117,24 @@ export const zh = {
     loading: '加载中...',
   },
   
+  // Chat
+  chat: {
+    support: '支持',
+    adminSupport: '管理员支持',
+    conversations: '对话列表',
+    noConversations: '暂无对话',
+    selectConversation: '选择一个对话开始聊天',
+    noMessages: '暂无消息，开始对话吧！',
+    typeMessage: '输入消息...',
+    send: '发送',
+    justNow: '刚刚',
+    minutesAgo: '分钟前',
+    loading: '加载中...',
+    close: '关闭',
+    minimize: '最小化',
+    expand: '展开',
+  },
+  
   // Settings
   settings: {
     title: '账户设置',

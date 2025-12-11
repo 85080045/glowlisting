@@ -117,6 +117,24 @@ export const en = {
     loading: 'Loading...',
   },
   
+  // Chat
+  chat: {
+    support: 'Support',
+    adminSupport: 'Admin Support',
+    conversations: 'Conversations',
+    noConversations: 'No conversations yet',
+    selectConversation: 'Select a conversation to start chatting',
+    noMessages: 'No messages yet. Start a conversation!',
+    typeMessage: 'Type your message...',
+    send: 'Send',
+    justNow: 'Just now',
+    minutesAgo: ' minutes ago',
+    loading: 'Loading...',
+    close: 'Close',
+    minimize: 'Minimize',
+    expand: 'Expand',
+  },
+  
   // Settings
   settings: {
     title: 'Account Settings',
