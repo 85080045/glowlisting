@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useNavigate } from 'react-router-dom'
-import { User, Image as ImageIcon, LogOut, Settings, AlertTriangle, Star } from 'lucide-react'
+import { User, Image as ImageIcon, LogOut, Settings, AlertTriangle, Star, Send } from 'lucide-react'
+import axios from 'axios'
 import Header from './Header'
 import UploadSection from './UploadSection'
 
@@ -13,6 +14,10 @@ export default function Dashboard() {
   const [uploadedImage, setUploadedImage] = useState(null)
   const [enhancedImage, setEnhancedImage] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [supportCategory, setSupportCategory] = useState('bug')
+  const [supportMessage, setSupportMessage] = useState('')
+  const [supportSubmitting, setSupportSubmitting] = useState(false)
+  const [supportResult, setSupportResult] = useState(null)
 
   useEffect(() => {
     if (!user) {
@@ -102,7 +107,7 @@ export default function Dashboard() {
           setIsProcessing={setIsProcessing}
         />
 
-        {/* 快速操作 */}
+    {/* 快速操作 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mt-8 mb-8">
           <button
             onClick={() => navigate('/history')}
@@ -149,6 +154,74 @@ export default function Dashboard() {
             </div>
           </button>
         </div>
+
+    {/* Support / Feedback */}
+    <div className="glass-dark rounded-xl p-6 mb-12">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-bold text-white">{t('dashboard.supportTitle')}</h3>
+        {supportResult && (
+          <span className="text-sm text-green-400">{t('dashboard.supportSuccess')}</span>
+        )}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-1">
+          <label className="block text-sm text-gray-300 mb-2">{t('dashboard.supportCategory')}</label>
+          <select
+            value={supportCategory}
+            onChange={(e) => setSupportCategory(e.target.value)}
+            className="w-full bg-gray-900/50 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="bug">{t('dashboard.supportCategoryBug')}</option>
+            <option value="idea">{t('dashboard.supportCategoryIdea')}</option>
+            <option value="complaint">{t('dashboard.supportCategoryComplaint')}</option>
+            <option value="other">{t('dashboard.supportCategoryOther')}</option>
+          </select>
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-sm text-gray-300 mb-2">{t('dashboard.supportMessage')}</label>
+          <textarea
+            value={supportMessage}
+            onChange={(e) => setSupportMessage(e.target.value)}
+            rows={4}
+            className="w-full bg-gray-900/50 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder={t('dashboard.supportPlaceholder')}
+          />
+        </div>
+      </div>
+      <div className="mt-4 flex items-center justify-end">
+        <button
+          disabled={supportSubmitting || !supportMessage}
+          onClick={async () => {
+            setSupportSubmitting(true)
+            setSupportResult(null)
+            try {
+              const token = localStorage.getItem('glowlisting_token')
+              await axios.post(
+                `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/support/feedback`,
+                {
+                  category: supportCategory,
+                  message: supportMessage,
+                },
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                }
+              )
+              setSupportResult('ok')
+              setSupportMessage('')
+            } catch (err) {
+              console.error('Submit feedback failed:', err)
+              setSupportResult('error')
+            } finally {
+              setSupportSubmitting(false)
+            }
+          }}
+          className={`btn-primary flex items-center gap-2 ${supportSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+        >
+          <Send className="h-4 w-4" />
+          {supportSubmitting ? t('dashboard.supportSubmitting') : t('dashboard.supportSubmit')}
+        </button>
+      </div>
+    </div>
 
         {/* 使用统计 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">

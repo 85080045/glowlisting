@@ -1504,6 +1504,29 @@ app.get('/api/admin/support/errors', authMiddleware, adminMiddleware, async (req
   }
 })
 
+// User submit feedback (auth required for user_id/email; allow manual email if anon is ever needed)
+app.post('/api/support/feedback', authMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Feedback requires database' })
+    const { category, message, email, status } = req.body
+    if (!message) return res.status(400).json({ error: 'Message is required' })
+
+    const user = await getUserByIdSafe(req.userId)
+    const finalEmail = email || user?.email || null
+
+    await query(
+      `INSERT INTO feedback (user_id, email, category, message, status)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [req.userId || null, finalEmail, category || null, message, status || 'open']
+    )
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Submit feedback error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Admin 高级统计（留存率、LTV等）
 app.get('/api/admin/advanced-stats', authMiddleware, adminMiddleware, async (req, res) => {
   try {

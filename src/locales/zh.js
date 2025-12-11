@@ -100,6 +100,17 @@ export const zh = {
     getMoreImages: '获取更多图片',
     manageSubscription: '管理订阅',
     subscription: '订阅',
+    supportTitle: '支持与反馈',
+    supportCategory: '分类',
+    supportCategoryBug: '问题/故障',
+    supportCategoryIdea: '新想法',
+    supportCategoryComplaint: '投诉',
+    supportCategoryOther: '其他',
+    supportMessage: '留言',
+    supportPlaceholder: '请描述你的问题或建议...',
+    supportSubmit: '提交',
+    supportSubmitting: '提交中...',
+    supportSuccess: '提交成功',
   },
   
   // Settings

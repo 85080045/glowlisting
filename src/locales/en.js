@@ -100,6 +100,17 @@ export const en = {
     getMoreImages: 'Get More Images',
     manageSubscription: 'Manage Subscription',
     subscription: 'Subscription',
+    supportTitle: 'Support & Feedback',
+    supportCategory: 'Category',
+    supportCategoryBug: 'Bug',
+    supportCategoryIdea: 'Idea',
+    supportCategoryComplaint: 'Complaint',
+    supportCategoryOther: 'Other',
+    supportMessage: 'Message',
+    supportPlaceholder: 'Describe your issue or suggestion...',
+    supportSubmit: 'Send',
+    supportSubmitting: 'Sending...',
+    supportSuccess: 'Submitted successfully',
   },
   
   // Settings
