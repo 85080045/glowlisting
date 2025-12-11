@@ -17,6 +17,7 @@ import bcrypt from 'bcryptjs'
 import { query } from './db/client.js'
 import geoip from 'geoip-lite'
 import { WebSocketServer } from 'ws'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 // 加载环境变量
 dotenv.config()
@@ -1625,6 +1626,7 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
     const newMsg = result.rows[0]
 
     // 广播给所有管理员（新消息通知）
+    const hasAdmin = await hasAdminOnline()
     wsBroadcastToAdmins({
       type: 'message_new',
       messageId: newMsg.id,
@@ -1632,6 +1634,48 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
       message: newMsg.message,
       createdAt: newMsg.created_at,
     })
+
+    // 如果没有管理员在线，使用AI Bot自动回复（延迟3秒，给管理员时间回复）
+    if (!hasAdmin) {
+      setTimeout(async () => {
+        try {
+          // 再次检查是否有管理员回复（避免重复回复）
+          const recentAdminReply = await query(
+            `SELECT COUNT(*) FROM messages 
+             WHERE user_id = $1 AND is_admin = TRUE AND created_at > $2`,
+            [req.userId, newMsg.created_at]
+          )
+          
+          if (Number(recentAdminReply.rows[0]?.count || 0) === 0) {
+            // 没有管理员回复，生成AI回复
+            const botReply = await generateAIBotReply(req.userId, newMsg.message)
+            
+            if (botReply) {
+              const botResult = await query(
+                `INSERT INTO messages (user_id, is_admin, message)
+                 VALUES ($1, TRUE, $2)
+                 RETURNING id, user_id, is_admin, message, created_at`,
+                [req.userId, `[AI Assistant] ${botReply}`]
+              )
+              
+              const botMsg = botResult.rows[0]
+              
+              // 通知用户收到AI回复
+              wsBroadcastToUser(req.userId, {
+                type: 'message_reply',
+                messageId: botMsg.id,
+                message: botMsg.message,
+                createdAt: botMsg.created_at,
+              })
+              
+              console.log(`🤖 AI Bot replied to user ${req.userId}`)
+            }
+          }
+        } catch (error) {
+          console.error('AI Bot auto-reply error:', error)
+        }
+      }, 3000) // 3秒延迟
+    }
 
     res.json({ success: true, message: newMsg })
   } catch (error) {
@@ -3401,6 +3445,23 @@ const cleanupOldImages = async () => {
   }
 }
 
+// 清理超过90天的聊天消息（定时任务）
+const cleanupOldMessages = async () => {
+  if (!useDb) return
+  try {
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+    const result = await query(
+      `DELETE FROM messages WHERE created_at < $1`,
+      [ninetyDaysAgo]
+    )
+    if (result.rowCount > 0) {
+      console.log(`🧹 清理了 ${result.rowCount} 条超过90天的聊天消息`)
+    }
+  } catch (error) {
+    console.error('清理旧聊天消息失败:', error.message)
+  }
+}
+
 // 启动时自动运行迁移（如果数据库可用）
 if (useDb) {
   (async () => {
@@ -3470,12 +3531,17 @@ if (useDb) {
         console.warn('⚠️ messages 表迁移检查失败（不影响应用启动）:', migrationError.message)
       }
       
-      // 启动时清理一次旧图片
+      // 启动时清理一次旧图片和旧消息
       await cleanupOldImages()
+      await cleanupOldMessages()
       
       // 每10分钟清理一次超过30分钟的图片
       setInterval(cleanupOldImages, 10 * 60 * 1000)
       console.log('🔄 已启动图片清理任务（每10分钟清理超过30分钟的图片）')
+      
+      // 每天清理一次超过90天的聊天消息
+      setInterval(cleanupOldMessages, 24 * 60 * 60 * 1000)
+      console.log('🔄 已启动消息清理任务（每天清理超过90天的聊天消息）')
     } catch (error) {
       console.error('⚠️ 迁移检查失败（不影响应用启动）:', error.message)
     }
@@ -3513,6 +3579,90 @@ const wsBroadcastToAdmins = async (payload) => {
     }
   } catch (e) {
     console.error('wsBroadcastToAdmins error:', e)
+  }
+}
+
+// 检查是否有管理员在线（通过WebSocket连接）
+const hasAdminOnline = async () => {
+  if (!useDb) return false
+  try {
+    // 获取所有管理员ID
+    const adminRows = await query(`SELECT id FROM users WHERE is_admin = TRUE`)
+    // 检查是否有管理员在wsClients中
+    for (const row of adminRows.rows) {
+      const set = wsClients.get(row.id)
+      if (set && set.size > 0) {
+        // 检查连接是否有效
+        for (const ws of set) {
+          if (ws.readyState === 1) { // WebSocket.OPEN = 1
+            return true
+          }
+        }
+      }
+    }
+    return false
+  } catch (e) {
+    console.error('hasAdminOnline error:', e)
+    return false
+  }
+}
+
+// AI Bot 自动回复
+const generateAIBotReply = async (userId, userMessage) => {
+  try {
+    const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
+    if (!GOOGLE_AI_API_KEY) {
+      console.warn('⚠️ GOOGLE_AI_API_KEY not configured, AI bot disabled')
+      return null
+    }
+
+    // 获取用户的历史消息（最近10条，用于上下文）
+    const historyRows = await query(
+      `SELECT message, is_admin, created_at
+       FROM messages
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 10`,
+      [userId]
+    )
+    
+    // 构建对话历史（从旧到新）
+    const history = historyRows.rows.reverse().map(row => ({
+      role: row.is_admin ? 'assistant' : 'user',
+      content: row.message
+    }))
+
+    // 初始化 Gemini API
+    const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY)
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+
+    // 构建系统提示词
+    const systemPrompt = `You are a helpful customer support assistant for GlowListing, a real estate photo enhancement service. 
+Your role is to:
+- Answer user questions about the service, features, pricing, and usage
+- Help troubleshoot issues with photo processing
+- Provide friendly and professional support
+- If you cannot answer a question, politely suggest contacting an administrator
+- Keep responses concise and helpful
+- Respond in the same language as the user's message
+
+User's message: ${userMessage}
+
+Previous conversation context:
+${history.map(h => `${h.role}: ${h.content}`).join('\n')}
+
+Please provide a helpful response:`
+
+    const result = await model.generateContent(systemPrompt)
+    const response = result.response
+    const botReply = response.text().trim()
+
+    if (!botReply) return null
+
+    return botReply
+  } catch (error) {
+    console.error('AI Bot reply generation error:', error)
+    return null
   }
 }
 
