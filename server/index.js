@@ -3664,9 +3664,11 @@ const hasAdminOnline = async () => {
 const generateAIBotReply = async (userId, userMessage, needsTransfer = false) => {
   try {
     const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
+    console.log(`🔑 Checking API key: ${GOOGLE_AI_API_KEY ? `Found (${GOOGLE_AI_API_KEY.substring(0, 10)}...)` : 'NOT FOUND'}`)
+    
     if (!GOOGLE_AI_API_KEY) {
-      console.warn('⚠️ GOOGLE_AI_API_KEY not configured, AI bot disabled')
-      console.warn('⚠️ Please set GOOGLE_AI_API_KEY or GEMINI_API_KEY in environment variables')
+      console.error('❌ GOOGLE_AI_API_KEY not configured, AI bot disabled')
+      console.error('❌ Please set GOOGLE_AI_API_KEY or GEMINI_API_KEY in environment variables')
       return null
     }
     
