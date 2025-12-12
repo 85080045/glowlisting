@@ -1744,6 +1744,42 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
   }
 })
 
+// 测试AI Bot端点（仅用于调试）
+app.post('/api/admin/test-ai-bot', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { message, userId } = req.body
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' })
+    }
+    
+    console.log(`🧪 Testing AI Bot with message: ${message}`)
+    const testUserId = userId || req.userId
+    
+    const botReply = await generateAIBotReply(testUserId, message, false)
+    
+    if (botReply) {
+      res.json({ 
+        success: true, 
+        reply: botReply,
+        message: 'AI Bot test successful'
+      })
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'AI Bot returned null/empty reply',
+        message: 'Check server logs for details'
+      })
+    }
+  } catch (error) {
+    console.error('Test AI Bot error:', error)
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
+  }
+})
+
 // 管理员：获取所有用户的对话列表（按用户分组，显示最新消息）
 app.get('/api/admin/support/conversations', authMiddleware, adminMiddleware, async (req, res) => {
   try {
@@ -3680,11 +3716,26 @@ const hasAdminOnline = async () => {
 const generateAIBotReply = async (userId, userMessage, needsTransfer = false) => {
   try {
     const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
-    console.log(`🔑 Checking API key: ${GOOGLE_AI_API_KEY ? `Found (${GOOGLE_AI_API_KEY.substring(0, 10)}...)` : 'NOT FOUND'}`)
+    
+    // 详细检查API key
+    console.log(`🔑 Checking API key...`)
+    console.log(`🔑 GOOGLE_AI_API_KEY exists: ${!!process.env.GOOGLE_AI_API_KEY}`)
+    console.log(`🔑 GEMINI_API_KEY exists: ${!!process.env.GEMINI_API_KEY}`)
+    if (GOOGLE_AI_API_KEY) {
+      console.log(`🔑 Final key: Found (${GOOGLE_AI_API_KEY.substring(0, 10)}...${GOOGLE_AI_API_KEY.substring(GOOGLE_AI_API_KEY.length - 5)}, length: ${GOOGLE_AI_API_KEY.length})`)
+    } else {
+      console.log(`🔑 Final key: NOT FOUND`)
+    }
     
     if (!GOOGLE_AI_API_KEY) {
       console.error('❌ GOOGLE_AI_API_KEY not configured, AI bot disabled')
       console.error('❌ Please set GOOGLE_AI_API_KEY or GEMINI_API_KEY in environment variables')
+      console.error('❌ Current env keys:', Object.keys(process.env).filter(k => k.includes('GOOGLE') || k.includes('GEMINI') || k.includes('AI')))
+      return null
+    }
+    
+    if (GOOGLE_AI_API_KEY.length < 20) {
+      console.error(`❌ API key seems too short (${GOOGLE_AI_API_KEY.length} chars), might be invalid`)
       return null
     }
     
