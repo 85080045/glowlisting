@@ -111,7 +111,7 @@ const checkMessagesEndpoint = () => {
     
     console.log('3️⃣ 配置检查建议:')
     console.log('   请检查 Render 环境变量:')
-    console.log('   - GOOGLE_AI_API_KEY 或 GEMINI_API_KEY')
+    console.log('   - GOOGLE_AI_API_KEY（必须是这个名称）')
     console.log('   - 确保 API key 已正确设置')
     console.log('')
     

@@ -20,13 +20,13 @@
 ### 1. 检查 Render 环境变量
 
 **必须配置的环境变量：**
-- `GOOGLE_AI_API_KEY` 或 `GEMINI_API_KEY`
+- `GOOGLE_AI_API_KEY`
 
 **检查方法：**
 1. 登录 https://dashboard.render.com
 2. 进入后端服务（glowlisting）
 3. 点击 "Environment" 标签
-4. 查找 `GOOGLE_AI_API_KEY` 或 `GEMINI_API_KEY`
+4. 查找 `GOOGLE_AI_API_KEY`
 5. 确保值已正确设置（应该是 `AIzaSy...` 开头的字符串）
 
 ### 2. 检查 Render 启动日志
@@ -44,7 +44,7 @@
 
 **如果配置错误，应该看到：**
 ```
-⚠️ AI Bot NOT configured: GOOGLE_AI_API_KEY or GEMINI_API_KEY not found
+⚠️ AI Bot NOT configured: GOOGLE_AI_API_KEY not found
 ⚠️ AI bot will not work until API key is set in environment variables
 ```
 
@@ -59,7 +59,6 @@
 🤖 No admin reply found, generating AI bot reply for user {userId}...
 🔑 Checking API key...
 🔑 GOOGLE_AI_API_KEY exists: true/false
-🔑 GEMINI_API_KEY exists: true/false
 🤖 AI Bot: Generating reply for user {userId}, message: {message}...
 🤖 AI Bot: Calling Gemini API with model gemini-1.5-flash...
 ```
@@ -67,7 +66,7 @@
 **如果 API key 未配置，会看到：**
 ```
 ❌ GOOGLE_AI_API_KEY not configured, AI bot disabled
-❌ Please set GOOGLE_AI_API_KEY or GEMINI_API_KEY in environment variables
+❌ Please set GOOGLE_AI_API_KEY in environment variables
 ```
 
 **如果 API key 配置错误，会看到：**
@@ -90,7 +89,7 @@
    - 进入后端服务
    - 点击 "Environment" 标签
    - 添加环境变量：
-     - **Key:** `GOOGLE_AI_API_KEY`
+     - **Key:** `GOOGLE_AI_API_KEY`（注意：必须是这个名称，不是 GEMINI_API_KEY）
      - **Value:** 你的 API Key（`AIzaSy...`）
    - 点击 "Save Changes"
    - **重要：** 重启服务以应用更改
@@ -176,7 +175,7 @@
 ### Q2: 日志显示 "AI Bot NOT configured"
 
 **解决方法：**
-1. 确认环境变量名称正确：`GOOGLE_AI_API_KEY` 或 `GEMINI_API_KEY`
+1. 确认环境变量名称正确：`GOOGLE_AI_API_KEY`（必须是这个名称）
 2. 确认环境变量值正确（没有多余空格）
 3. **重启服务**（重要！环境变量更改后必须重启）
 
