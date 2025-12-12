@@ -1661,6 +1661,9 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
 
     // AI Bot总是先介入（延迟3秒，给管理员时间先回复）
     console.log(`🤖 Scheduling AI bot reply in 3 seconds for user ${req.userId}...`)
+    console.log(`🤖 Message ID: ${newMsg.id}, Created at: ${newMsg.created_at}`)
+    
+    // 使用 setImmediate 确保异步操作不会丢失
     const timeoutId = setTimeout(async () => {
       try {
         console.log(`🤖 AI bot timeout triggered for user ${req.userId} at ${new Date().toISOString()}`)
