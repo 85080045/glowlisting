@@ -3632,12 +3632,12 @@ if (useDb) {
       await cleanupOldMessages()
       
       // 检查AI Bot配置
-      const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
+      const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY
       if (GOOGLE_AI_API_KEY) {
         console.log(`✅ AI Bot configured: GOOGLE_AI_API_KEY found (${GOOGLE_AI_API_KEY.substring(0, 10)}...)`)
       } else {
-        console.warn('⚠️ AI Bot NOT configured: GOOGLE_AI_API_KEY or GEMINI_API_KEY not found')
-        console.warn('⚠️ AI bot will not work until API key is set in environment variables')
+        console.warn('⚠️ AI Bot NOT configured: GOOGLE_AI_API_KEY not found')
+        console.warn('⚠️ AI bot will not work until GOOGLE_AI_API_KEY is set in environment variables')
       }
       
       // 每10分钟清理一次超过30分钟的图片
@@ -3715,12 +3715,11 @@ const hasAdminOnline = async () => {
 // AI Bot 自动回复
 const generateAIBotReply = async (userId, userMessage, needsTransfer = false) => {
   try {
-    const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
+    const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY
     
     // 详细检查API key
     console.log(`🔑 Checking API key...`)
-    console.log(`🔑 GOOGLE_AI_API_KEY exists: ${!!process.env.GOOGLE_AI_API_KEY}`)
-    console.log(`🔑 GEMINI_API_KEY exists: ${!!process.env.GEMINI_API_KEY}`)
+    console.log(`🔑 GOOGLE_AI_API_KEY exists: ${!!GOOGLE_AI_API_KEY}`)
     if (GOOGLE_AI_API_KEY) {
       console.log(`🔑 Final key: Found (${GOOGLE_AI_API_KEY.substring(0, 10)}...${GOOGLE_AI_API_KEY.substring(GOOGLE_AI_API_KEY.length - 5)}, length: ${GOOGLE_AI_API_KEY.length})`)
     } else {
@@ -3729,8 +3728,8 @@ const generateAIBotReply = async (userId, userMessage, needsTransfer = false) =>
     
     if (!GOOGLE_AI_API_KEY) {
       console.error('❌ GOOGLE_AI_API_KEY not configured, AI bot disabled')
-      console.error('❌ Please set GOOGLE_AI_API_KEY or GEMINI_API_KEY in environment variables')
-      console.error('❌ Current env keys:', Object.keys(process.env).filter(k => k.includes('GOOGLE') || k.includes('GEMINI') || k.includes('AI')))
+      console.error('❌ Please set GOOGLE_AI_API_KEY in environment variables')
+      console.error('❌ Current env keys:', Object.keys(process.env).filter(k => k.includes('GOOGLE') || k.includes('AI')))
       return null
     }
     
