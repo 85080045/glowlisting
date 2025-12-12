@@ -1745,6 +1745,29 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
 })
 
 // 测试AI Bot端点（仅用于调试）
+// 公开的诊断端点：检查 AI Bot 配置状态（不暴露敏感信息）
+app.get('/api/admin/ai-bot-status', async (req, res) => {
+  try {
+    const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY
+    const isConfigured = !!GOOGLE_AI_API_KEY && GOOGLE_AI_API_KEY.length >= 20
+    
+    res.json({
+      success: true,
+      configured: isConfigured,
+      keyExists: !!GOOGLE_AI_API_KEY,
+      keyLength: GOOGLE_AI_API_KEY ? GOOGLE_AI_API_KEY.length : 0,
+      message: isConfigured 
+        ? 'AI Bot is configured and ready' 
+        : 'AI Bot is NOT configured. Please set GOOGLE_AI_API_KEY in environment variables'
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
 app.post('/api/admin/test-ai-bot', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { message, userId } = req.body
