@@ -3781,14 +3781,9 @@ const generateAIBotReply = async (userId, userMessage, needsTransfer = false) =>
 
     // 初始化 Gemini API
     const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-
-    // 构建系统提示词
-    const transferNote = needsTransfer 
-      ? '\n\n⚠️ IMPORTANT: The user has requested to speak with a human agent/admin. Acknowledge this request and let them know that an administrator will be notified and will respond soon.'
-      : ''
-    
-    const systemPrompt = `You are a customer support assistant for GlowListing, a real estate photo enhancement service.
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash',
+      systemInstruction: `You are a customer support assistant for GlowListing, a real estate photo enhancement service.
 
 IMPORTANT RULES:
 1. You can ONLY respond to questions about:
@@ -3818,21 +3813,30 @@ IMPORTANT RULES:
    - Respond in the same language as the user's message
    - Be friendly and professional
    - Focus on solving the user's specific issue
-   - If you cannot solve the issue after a few exchanges, suggest transferring to a human agent
+   - If you cannot solve the issue after a few exchanges, suggest transferring to a human agent`
+    })
 
-${transferNote}
+    // 构建对话历史（转换为 Gemini API 格式）
+    const chatHistory = history.map(h => ({
+      role: h.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: h.content }]
+    }))
 
-User's message: ${userMessage}
-
-Previous conversation context:
-${history.map(h => `${h.role}: ${h.content}`).join('\n')}
-
-Please provide a helpful response (only if the question is within your scope, otherwise direct them to email hello@glowlisting.ai):`
+    // 如果用户要求转接，添加特殊提示
+    const userMessageWithTransfer = needsTransfer 
+      ? `${userMessage}\n\n[Note: The user has requested to speak with a human agent/admin. Acknowledge this request and let them know that an administrator will be notified and will respond soon.]`
+      : userMessage
 
     console.log(`🤖 AI Bot: Calling Gemini API with model gemini-1.5-flash...`)
-    console.log(`🤖 AI Bot: Prompt length: ${systemPrompt.length} chars`)
+    console.log(`🤖 AI Bot: Chat history: ${chatHistory.length} messages`)
+    console.log(`🤖 AI Bot: User message length: ${userMessageWithTransfer.length} chars`)
     
-    const result = await model.generateContent(systemPrompt)
+    // 使用 startChat 方法处理对话
+    const chat = model.startChat({
+      history: chatHistory
+    })
+    
+    const result = await chat.sendMessage(userMessageWithTransfer)
     console.log(`🤖 AI Bot: Gemini API call successful`)
     
     const response = result.response
