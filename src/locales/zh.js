@@ -335,6 +335,12 @@ export const zh = {
     moneySaved: '为客户节省的总金额',
     moneySavedDesc: '我们的客户通过使用 GlowListing 而非聘请专业摄影师，已节省超过 $30,000',
     trustTitle: '值得信赖 · 安全合规',
+    trustStripe: 'Stripe 安全支付',
+    trustStripeDesc: '所有支付均通过 Stripe 处理，并采用业界标准加密。',
+    trustSecurity: '银行级加密',
+    trustSecurityDesc: '端到端 SSL/TLS 加密，保护您的照片与账户安全。',
+    trustCompliance: '隐私与合规',
+    trustComplianceDesc: '遵循类似 GDPR 的隐私原则与数据最小化策略。',
   },
   
   // Upload Section

@@ -1,4 +1,4 @@
-import { Sparkles, Upload, Zap } from 'lucide-react'
+import { Sparkles, Upload, Zap, ShieldCheck, Lock, Shield } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import ScrollReveal, { ScrollRevealItem } from './ScrollReveal'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -75,22 +75,50 @@ export default function Hero() {
         
         {/* Trust Badges */}
         <ScrollReveal variant="fade" delay={0.12}>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 md:gap-4">
-            <span className="text-xs md:text-sm text-gray-400 uppercase tracking-[0.2em]">
-              {t('hero.trustTitle')}
-            </span>
-            <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">
-              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-100 text-xs md:text-sm font-medium">
-                Stripe Secure Checkout
+          <div className="mt-8 flex flex-col items-center space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/40 text-emerald-200 text-[11px] md:text-xs tracking-[0.25em] uppercase">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>{t('hero.trustTitle')}</span>
+            </div>
+            <div className="w-full max-w-3xl grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+              <div className="glass-dark rounded-2xl px-4 py-3 flex items-center gap-3 border border-white/10">
+                <div className="px-2.5 py-1 rounded-md bg-white text-[#635bff] text-xs font-black tracking-wide shadow-sm">
+                  stripe
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-[11px] md:text-xs font-semibold text-gray-100">
+                    {t('hero.trustStripe')}
+                  </p>
+                  <p className="text-[10px] text-gray-400 hidden md:block">
+                    {t('hero.trustStripeDesc')}
+                  </p>
+                </div>
               </div>
-              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-100 text-xs md:text-sm font-medium">
-                PCI-DSS Ready
+              <div className="glass-dark rounded-2xl px-4 py-3 flex items-center gap-3 border border-white/10">
+                <div className="p-2 rounded-full bg-blue-500/20 text-blue-300">
+                  <Lock className="h-4 w-4" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-[11px] md:text-xs font-semibold text-gray-100">
+                    {t('hero.trustSecurity')}
+                  </p>
+                  <p className="text-[10px] text-gray-400 hidden md:block">
+                    {t('hero.trustSecurityDesc')}
+                  </p>
+                </div>
               </div>
-              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-100 text-xs md:text-sm font-medium">
-                SSL/TLS Encrypted
-              </div>
-              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-100 text-xs md:text-sm font-medium">
-                Data Privacy
+              <div className="glass-dark rounded-2xl px-4 py-3 flex items-center gap-3 border border-white/10">
+                <div className="p-2 rounded-full bg-cyan-500/20 text-cyan-300">
+                  <Shield className="h-4 w-4" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-[11px] md:text-xs font-semibold text-gray-100">
+                    {t('hero.trustCompliance')}
+                  </p>
+                  <p className="text-[10px] text-gray-400 hidden md:block">
+                    {t('hero.trustComplianceDesc')}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

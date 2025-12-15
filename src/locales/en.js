@@ -335,6 +335,12 @@ export const en = {
     moneySaved: 'Total Money Saved for Our Clients',
     moneySavedDesc: 'Our clients have saved over $30,000 by using GlowListing instead of hiring professional photographers',
     trustTitle: 'TRUSTED & SECURE',
+    trustStripe: 'Stripe-secured payments',
+    trustStripeDesc: 'All payments are processed via Stripe with industry-standard encryption.',
+    trustSecurity: 'Bank-grade encryption',
+    trustSecurityDesc: 'End-to-end SSL/TLS encryption protects your photos and account.',
+    trustCompliance: 'Privacy & compliance',
+    trustComplianceDesc: 'Designed with GDPR-style privacy principles and data minimization.',
   },
   
   // Upload Section

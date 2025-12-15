@@ -69,6 +69,8 @@ export default function AdminDashboard() {
   const [visitsStats, setVisitsStats] = useState(null)
   const [visitsRange, setVisitsRange] = useState('today')
   const [visitsLoading, setVisitsLoading] = useState(false)
+  const [analyticsSummary, setAnalyticsSummary] = useState(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
 
   useEffect(() => {
     console.log('AdminDashboard useEffect - user:', user)
@@ -87,6 +89,7 @@ export default function AdminDashboard() {
 
     console.log('User is admin, fetching data...')
     fetchData()
+    fetchAnalyticsSummary()
     const interval = setInterval(fetchData, 30000) // 每30秒刷新一次
     return () => clearInterval(interval)
   }, [user, navigate])
@@ -220,6 +223,23 @@ export default function AdminDashboard() {
     setEndDate(null)
     setShowDatePicker(false)
     fetchData()
+  }
+
+  const fetchAnalyticsSummary = async () => {
+    try {
+      setAnalyticsLoading(true)
+      const token = localStorage.getItem('glowlisting_token')
+      if (!token) return
+      const res = await axios.get(`${API_URL}/admin/analytics/summary`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setAnalyticsSummary(res.data)
+    } catch (e) {
+      console.warn('Failed to fetch analytics summary:', e)
+      setAnalyticsSummary(null)
+    } finally {
+      setAnalyticsLoading(false)
+    }
   }
 
   const fetchVisitsStats = async () => {
@@ -410,7 +430,7 @@ export default function AdminDashboard() {
 
         {/* 标签页 */}
         <div className="flex gap-2 mb-6 overflow-x-auto">
-          <button
+        <button
             onClick={() => setActiveTab('overview')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
               activeTab === 'overview'
@@ -420,7 +440,7 @@ export default function AdminDashboard() {
           >
             {t('adminDashboard.overview')}
           </button>
-          <button
+        <button
             onClick={() => setActiveTab('users')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
               activeTab === 'users'
@@ -482,6 +502,19 @@ export default function AdminDashboard() {
           }`}
         >
           {t('adminDashboard.billing')}
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('analytics')
+            fetchAnalyticsSummary()
+          }}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === 'analytics'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+              : 'glass-dark text-gray-300 hover:bg-gray-800'
+          }`}
+        >
+          {t('adminDashboard.analytics')}
         </button>
         </div>
 
