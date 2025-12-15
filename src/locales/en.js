@@ -78,6 +78,7 @@ export const en = {
   
   // Dashboard
   dashboard: {
+    loading: 'Loading...',
     remainingTokens: 'Remaining Tokens',
     remainingImages: 'Remaining images',
     logout: 'Logout',

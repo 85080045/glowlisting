@@ -9,20 +9,32 @@ import UploadSection from './UploadSection'
 
 export default function Dashboard() {
   const { t } = useLanguage()
-  const { user, tokens, logout, fetchUserInfo } = useAuth()
+  const { user, tokens, logout, fetchUserInfo, loading } = useAuth()
   const navigate = useNavigate()
   const [uploadedImage, setUploadedImage] = useState(null)
   const [enhancedImage, setEnhancedImage] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => {
-    if (!user) {
+    // 只有在加载完成且没有用户时才跳转
+    if (!loading && !user) {
       navigate('/login')
-    } else {
-      fetchUserInfo()
     }
-  }, [user, navigate])
+  }, [user, loading, navigate])
 
+  // 如果正在加载，显示加载状态
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">{t('dashboard.loading')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 如果没有用户（且不在加载中），返回 null（会触发跳转）
   if (!user) {
     return null
   }

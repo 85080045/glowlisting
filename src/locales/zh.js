@@ -78,6 +78,7 @@ export const zh = {
   
   // Dashboard
   dashboard: {
+    loading: '加载中...',
     remainingTokens: '剩余次数',
     remainingImages: '剩余可用图片',
     logout: '退出登录',
