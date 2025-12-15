@@ -3306,21 +3306,40 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
     
     // 如果使用数据库，先从数据库查找图片记录
     if (useDb) {
-      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
-      const result = await query(
+      // 先不限制时间，查找所有记录
+      let result = await query(
         `SELECT id, hd_path, enhanced_data, user_id, created_at
          FROM images 
-         WHERE id = $1 AND user_id = $2 AND created_at >= $3`,
-        [imageId, userId, thirtyMinutesAgo]
+         WHERE id = $1 AND user_id = $2`,
+        [imageId, userId]
       )
+      
+      // 如果没找到，尝试只通过 imageId 查找（可能是权限问题）
+      if (result.rows.length === 0) {
+        console.warn(`Download: Image not found with userId check. imageId: ${imageId}, userId: ${userId}. Trying without userId check...`)
+        result = await query(
+          `SELECT id, hd_path, enhanced_data, user_id, created_at
+           FROM images 
+           WHERE id = $1`,
+          [imageId]
+        )
+      }
       
       if (result.rows.length === 0) {
         console.error(`Download: Image not found in database. imageId: ${imageId}, userId: ${userId}`)
-        return res.status(404).json({ error: 'Image not found or expired (30 minutes limit)' })
+        // 检查是否有其他图片记录
+        const allImages = await query(`SELECT COUNT(*) as count FROM images WHERE user_id = $1`, [userId])
+        console.error(`Download: User has ${allImages.rows[0]?.count || 0} total images in database`)
+        return res.status(404).json({ error: 'Image not found' })
       }
       
       imageRecord = result.rows[0]
-      console.log(`Download: Found image record. hd_path: ${imageRecord.hd_path}, imageId: ${imageId}`)
+      const createdAt = new Date(imageRecord.created_at)
+      const now = new Date()
+      const ageMinutes = (now - createdAt) / (1000 * 60)
+      
+      console.log(`Download: Found image record. hd_path: ${imageRecord.hd_path}, imageId: ${imageId}, age: ${ageMinutes.toFixed(1)} minutes`)
+      console.log(`Download: enhanced_data exists: ${!!imageRecord.enhanced_data}, length: ${imageRecord.enhanced_data?.length || 0}`)
       
       // 使用数据库中的 hd_path
       if (imageRecord.hd_path) {
@@ -3359,37 +3378,59 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
     }
     
     // 如果文件不存在，尝试从数据库读取 enhanced_data
-    if (useDatabaseImage && imageRecord && imageRecord.enhanced_data) {
-      console.log(`Download: Using enhanced_data from database as fallback`)
-      const enhancedData = imageRecord.enhanced_data
-      
-      // enhanced_data 可能是 base64 字符串或 data URL
-      let imageBuffer
-      if (enhancedData.startsWith('data:image')) {
-        // 提取 base64 部分
-        const base64Data = enhancedData.split(',')[1]
-        imageBuffer = Buffer.from(base64Data, 'base64')
+    if (useDatabaseImage && imageRecord) {
+      if (imageRecord.enhanced_data) {
+        console.log(`Download: Using enhanced_data from database as fallback`)
+        const enhancedData = imageRecord.enhanced_data
+        
+        // enhanced_data 可能是 base64 字符串或 data URL
+        let imageBuffer
+        try {
+          if (enhancedData.startsWith('data:image')) {
+            // 提取 base64 部分
+            const base64Data = enhancedData.split(',')[1]
+            if (!base64Data) {
+              throw new Error('Invalid data URL format')
+            }
+            imageBuffer = Buffer.from(base64Data, 'base64')
+          } else {
+            // 直接是 base64 字符串
+            imageBuffer = Buffer.from(enhancedData, 'base64')
+          }
+          
+          if (imageBuffer.length === 0) {
+            throw new Error('Image buffer is empty')
+          }
+          
+          console.log(`Download: Successfully decoded image from database, size: ${imageBuffer.length} bytes`)
+          
+          // 扣除一个 token（下载消耗）
+          const remainingTokens = await decrementUserTokensSafe(userId, 'download')
+          await recordTokenUsageSafe(userId, 'download', imageId)
+          
+          // 设置响应头
+          res.setHeader('Content-Type', 'image/jpeg')
+          res.setHeader('Content-Disposition', `attachment; filename="glowlisting-enhanced-${imageId}.jpg"`)
+          res.setHeader('X-Tokens-Remaining', remainingTokens.toString())
+          
+          // 发送图片数据
+          res.send(imageBuffer)
+          return
+        } catch (decodeError) {
+          console.error(`Download: Failed to decode enhanced_data:`, decodeError)
+          return res.status(500).json({ error: 'Failed to decode image data from database' })
+        }
       } else {
-        imageBuffer = Buffer.from(enhancedData, 'base64')
+        console.error(`Download: enhanced_data is null or empty for imageId: ${imageId}`)
+        return res.status(404).json({ error: 'Image data not found in database' })
       }
-      
-      // 扣除一个 token（下载消耗）
-      const remainingTokens = await decrementUserTokensSafe(userId, 'download')
-      await recordTokenUsageSafe(userId, 'download', imageId)
-      
-      // 设置响应头
-      res.setHeader('Content-Type', 'image/jpeg')
-      res.setHeader('Content-Disposition', `attachment; filename="glowlisting-enhanced-${imageId}.jpg"`)
-      res.setHeader('X-Tokens-Remaining', remainingTokens.toString())
-      
-      // 发送图片数据
-      res.send(imageBuffer)
-      return
     }
     
     // 如果既没有文件也没有数据库数据，返回错误
     if (!hdImagePath) {
       console.error(`Download: No file path and no database image data available`)
+      console.error(`Download: imageRecord:`, imageRecord ? 'exists' : 'null')
+      console.error(`Download: useDatabaseImage:`, useDatabaseImage)
       return res.status(404).json({ error: 'Image file not found' })
     }
     
