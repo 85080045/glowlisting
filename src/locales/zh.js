@@ -167,6 +167,7 @@ export const zh = {
     confirmDelete: '确定要删除这张图片吗？',
     storageNotice: '存储提示',
     storageNoticeDesc: '我们的服务器只保留照片30分钟，请及时下载，以免丢失。',
+    expireCountdown: '剩余时间：{{time}}',
   },
   
   // Subscription Management
@@ -405,6 +406,8 @@ export const zh = {
     sampleCta: '使用示例图片试用',
     sampleLoading: '示例图片加载中...',
     sampleError: '示例图片加载失败，请重试',
+    expireNotice: '增强图片仅保留 30 分钟，请及时下载。',
+    expireCountdown: '剩余下载时间：{{time}}',
     requiresLogin: '请注册或登录以使用此服务。正在跳转到登录页面...',
     queue: '批量队列',
     queueTotal: '总数',

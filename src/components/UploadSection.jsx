@@ -26,6 +26,8 @@ export default function UploadSection({
   const [remainingRegenerates, setRemainingRegenerates] = useState(3) // 剩余重新生成次数
   const [showTour, setShowTour] = useState(false) // 首登引导
   const [loadingSample, setLoadingSample] = useState(false) // 示例图加载中
+  const [expireAt, setExpireAt] = useState(null) // 当前处理结果过期时间
+  const [remainingSeconds, setRemainingSeconds] = useState(null) // 倒计时
   // 批量任务队列
   const [tasks, setTasks] = useState([]) // {id,name,dataUrl,status,enhanced,imageId,errorMsg}
   const [activeTaskId, setActiveTaskId] = useState(null)
@@ -48,6 +50,21 @@ export default function UploadSection({
       localStorage.setItem('glowlisting_tour_seen', '1')
     }
   }, [])
+
+  // 倒计时
+  useEffect(() => {
+    if (!expireAt) {
+      setRemainingSeconds(null)
+      return
+    }
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((expireAt - Date.now()) / 1000))
+      setRemainingSeconds(diff)
+    }
+    tick()
+    const timer = setInterval(tick, 1000)
+    return () => clearInterval(timer)
+  }, [expireAt])
 
   // 错误消息映射函数：将英文错误消息转换为翻译键
   const getTranslatedError = (errorMessage) => {
@@ -185,6 +202,7 @@ export default function UploadSection({
       const result = await enhanceImage(uploadedImage, isRegenerate, privacyOptions)
       setEnhancedImage(result.image)
       setImageId(result.imageId) // 保存图像 ID
+      setExpireAt(Date.now() + 30 * 60 * 1000) // 30分钟有效期
       
       // 更新重新生成次数信息
       if (result.regenerateCount !== undefined) {
@@ -329,6 +347,8 @@ export default function UploadSection({
     setImageId(null)
     setError(null)
     setShowCompare(false) // 关闭对比视图
+    setExpireAt(null)
+    setRemainingSeconds(null)
     setPrivacyOptions({ blurFaces: false, blurLicensePlates: false, removeSmallObjects: false }) // 重置隐私选项
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
@@ -631,6 +651,20 @@ export default function UploadSection({
             {error && (
               <div className="mt-4 p-4 bg-red-900/30 border border-red-500/50 rounded-lg text-red-300">
                 {error}
+              </div>
+            )}
+
+            {enhancedImage && remainingSeconds !== null && (
+              <div className="mt-4 p-4 bg-amber-900/30 border border-amber-500/50 rounded-lg text-amber-200 text-sm flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-300" />
+                  <span className="font-semibold">{t('upload.expireNotice')}</span>
+                </div>
+                <span className="font-mono text-base text-white">
+                  {t('upload.expireCountdown', {
+                    time: `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`
+                  })}
+                </span>
               </div>
             )}
 

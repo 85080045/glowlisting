@@ -167,6 +167,7 @@ export const en = {
     confirmDelete: 'Are you sure you want to delete this image?',
     storageNotice: 'Storage Notice',
     storageNoticeDesc: 'Our servers only store photos for 30 minutes. Please download your images promptly to avoid losing them.',
+    expireCountdown: 'Time left: {{time}}',
   },
   
   // Subscription Management
@@ -405,6 +406,8 @@ export const en = {
     sampleCta: 'Try with sample image',
     sampleLoading: 'Loading sample...',
     sampleError: 'Failed to load sample image, please try again',
+    expireNotice: 'Enhanced images are retained for 30 minutes. Please download promptly.',
+    expireCountdown: 'Time left to download: {{time}}',
     requiresLogin: 'Please register or login to use this service. Redirecting to login page...',
     queue: 'Batch queue',
     queueTotal: 'Total',

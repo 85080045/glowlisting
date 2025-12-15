@@ -9,6 +9,12 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
+const formatCountdown = (seconds) => {
+  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
+  const ss = String(seconds % 60).padStart(2, '0')
+  return `${mm}:${ss}`
+}
+
 export default function ImageHistory() {
   const { t } = useLanguage()
   const { user, updateTokens } = useAuth()
@@ -225,7 +231,16 @@ export default function ImageHistory() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredImages.map((img) => (
+            {filteredImages.map((img) => {
+              const remainingSeconds = img.createdAt
+                ? Math.max(
+                    0,
+                    Math.floor(
+                      (new Date(img.createdAt).getTime() + 30 * 60 * 1000 - Date.now()) / 1000
+                    )
+                  )
+                : null
+              return (
               <div key={img.id} className="glass-dark rounded-xl overflow-hidden hover:scale-105 transition-transform">
                 <div className="aspect-square bg-gray-800 relative group">
                   {img.thumbnail ? (
@@ -268,9 +283,18 @@ export default function ImageHistory() {
                   <p className="text-xs text-gray-500">
                     {new Date(img.createdAt).toLocaleString()}
                   </p>
+                  {remainingSeconds !== null && remainingSeconds > 0 && (
+                    <p
+                      className={`text-xs font-mono mt-1 ${
+                        remainingSeconds < 300 ? 'text-red-300' : 'text-amber-200'
+                      }`}
+                    >
+                      {t('history.expireCountdown', { time: formatCountdown(remainingSeconds) })}
+                    </p>
+                  )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
