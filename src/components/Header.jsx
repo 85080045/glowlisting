@@ -47,220 +47,152 @@ export default function Header() {
   }, [userMenuOpen])
 
   return (
-    <header className="glass-dark shadow-lg sticky top-0 z-50 border-b border-white/10">
+    <header className="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-50 border-b border-gray-200/50">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-4">
-            <LanguageSelector />
-            <Link 
-              to="/" 
-              className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <Camera className="h-6 w-6 md:h-8 md:w-8 text-blue-400" />
-              <span className="text-xl md:text-2xl font-bold text-white">GlowListing</span>
-            </Link>
-          </div>
+          {/* Logo */}
+          <Link 
+            to="/" 
+            className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <Camera className="h-7 w-7 text-blue-600" />
+            <span className="text-xl font-bold text-gray-900">GlowListing</span>
+          </Link>
           
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
-            <a 
-              href="#detailed-features" 
-              className="text-gray-300 hover:text-blue-400 transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault()
-                if (location.pathname === '/') {
-                  scrollToSection('detailed-features')
-                } else {
-                  navigate('/#detailed-features')
-                }
-              }}
-            >
-              {t('nav.features')}
-            </a>
-            <a 
-              href="#pricing" 
-              className="text-gray-300 hover:text-blue-400 transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault()
-                if (location.pathname === '/') {
-                  scrollToSection('pricing')
-                } else {
-                  navigate('/#pricing')
-                }
-              }}
-            >
-              {t('nav.pricing')}
-            </a>
-            <Link 
-              to="/about" 
-              className="text-gray-300 hover:text-blue-400 transition-colors cursor-pointer"
-            >
-              {t('nav.about')}
-            </Link>
+          {/* Desktop Navigation - 参考 Motorfy 风格 */}
+          <div className="hidden md:flex items-center space-x-8">
             <Link 
               to="/blog" 
-              className="text-gray-300 hover:text-blue-400 transition-colors cursor-pointer"
+              className="text-gray-700 hover:text-gray-900 transition-colors font-medium text-sm"
             >
               {t('nav.blog')}
             </Link>
-            <a 
-              href="#faq" 
-              className="text-gray-300 hover:text-blue-400 transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault()
-                if (location.pathname === '/') {
-                  scrollToSection('faq')
-                } else {
-                  navigate('/#faq')
-                }
-              }}
+            <Link 
+              to="/help" 
+              className="text-gray-700 hover:text-gray-900 transition-colors font-medium text-sm"
             >
-              {t('nav.faq')}
-            </a>
+              {t('nav.support')}
+            </Link>
             
-              {user ? (
-                <div className="flex items-center space-x-4">
-                  {/* 用户菜单 */}
-                  <div className="relative" ref={userMenuRef}>
-                    <button
-                      onClick={() => setUserMenuOpen(!userMenuOpen)}
-                      className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-                    >
-                      <User className="h-5 w-5 text-gray-300" />
-                      <span className="text-sm font-medium text-gray-100">{user.name}</span>
-                    </button>
-                    
-                    {userMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700 py-2 z-50">
+            {user ? (
+              <div className="flex items-center space-x-4">
+                {/* 用户菜单 */}
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <User className="h-5 w-5 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">{user.name}</span>
+                  </button>
+                  
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                      <Link
+                        to="/dashboard"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        {t('nav.dashboard')}
+                      </Link>
+                      {isAdmin && (
                         <Link
-                          to="/dashboard"
-                          className="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 transition-colors"
+                          to="/admin"
+                          className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition-colors"
                           onClick={() => setUserMenuOpen(false)}
                         >
-                          {t('nav.dashboard')}
+                          {t('nav.admin')}
                         </Link>
-                        {isAdmin && (
-                          <Link
-                            to="/admin"
-                            className="block px-4 py-2 text-sm text-red-300 hover:bg-gray-700 transition-colors"
-                            onClick={() => setUserMenuOpen(false)}
-                          >
-                            {t('nav.admin')}
-                          </Link>
-                        )}
-                        <button
-                          onClick={() => {
-                            logout()
-                            setUserMenuOpen(false)
-                            navigate('/')
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 transition-colors flex items-center space-x-2"
-                        >
-                          <LogOut className="h-4 w-4" />
-                          <span>{t('nav.logout')}</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                      <button
+                        onClick={() => {
+                          logout()
+                          setUserMenuOpen(false)
+                          navigate('/')
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>{t('nav.logout')}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ) : (
+              </div>
+            ) : (
               <button
                 onClick={() => navigate('/login')}
-                className="btn-primary"
+                className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
               >
                 {t('auth.login')}
               </button>
             )}
+            
+            {/* 语言选择器 */}
+            <div className="ml-2">
+              <LanguageSelector />
+            </div>
           </div>
 
           {/* Mobile menu button */}
-          <button
-            className="md:hidden p-2"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
+          <div className="md:hidden flex items-center space-x-3">
+            <LanguageSelector />
+            <button
+              className="p-2 text-gray-700"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 space-y-4">
-            <a 
-              href="#detailed-features" 
-              className="block text-gray-300 hover:text-blue-400 transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault()
-                setMobileMenuOpen(false)
-                if (location.pathname === '/') {
-                  scrollToSection('detailed-features')
-                } else {
-                  navigate('/#detailed-features')
-                }
-              }}
-            >
-              {t('nav.features')}
-            </a>
-            <a 
-              href="#pricing" 
-              className="block text-gray-300 hover:text-blue-400 transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault()
-                setMobileMenuOpen(false)
-                if (location.pathname === '/') {
-                  scrollToSection('pricing')
-                } else {
-                  navigate('/#pricing')
-                }
-              }}
-            >
-              {t('nav.pricing')}
-            </a>
-            <Link 
-              to="/about" 
-              className="block text-gray-300 hover:text-blue-400 transition-colors cursor-pointer" 
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              {t('nav.about')}
-            </Link>
+          <div className="md:hidden py-4 space-y-3 border-t border-gray-200">
             <Link 
               to="/blog" 
-              className="block text-gray-300 hover:text-blue-400 transition-colors cursor-pointer" 
+              className="block text-gray-700 hover:text-gray-900 transition-colors font-medium py-2" 
               onClick={() => setMobileMenuOpen(false)}
             >
               {t('nav.blog')}
             </Link>
-            <a 
-              href="#faq" 
-              className="block text-gray-300 hover:text-blue-400 transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault()
-                setMobileMenuOpen(false)
-                if (location.pathname === '/') {
-                  scrollToSection('faq')
-                } else {
-                  navigate('/#faq')
-                }
-              }}
+            <Link 
+              to="/help" 
+              className="block text-gray-700 hover:text-gray-900 transition-colors font-medium py-2" 
+              onClick={() => setMobileMenuOpen(false)}
             >
-              {t('nav.faq')}
-            </a>
+              {t('nav.support')}
+            </Link>
             
             {user ? (
               <>
-                <Link to="/dashboard" className="block text-gray-300 hover:text-blue-400 transition-colors">{t('nav.dashboard')}</Link>
+                <Link 
+                  to="/dashboard" 
+                  className="block text-gray-700 hover:text-gray-900 transition-colors font-medium py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {t('nav.dashboard')}
+                </Link>
                 {isAdmin && (
-                  <Link to="/admin" className="block text-red-300 hover:text-red-400 transition-colors">{t('nav.admin')}</Link>
+                  <Link 
+                    to="/admin" 
+                    className="block text-red-600 hover:text-red-700 transition-colors font-medium py-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {t('nav.admin')}
+                  </Link>
                 )}
                 <button
                   onClick={() => {
                     logout()
                     navigate('/')
+                    setMobileMenuOpen(false)
                   }}
-                  className="btn-secondary w-full flex items-center justify-center space-x-2"
+                  className="w-full text-left text-gray-700 hover:text-gray-900 transition-colors font-medium py-2 flex items-center space-x-2"
                 >
                   <LogOut className="h-5 w-5" />
                   <span>{t('nav.logout')}</span>
@@ -272,7 +204,7 @@ export default function Header() {
                   navigate('/login')
                   setMobileMenuOpen(false)
                 }}
-                className="btn-primary w-full"
+                className="w-full px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
               >
                 {t('auth.login')}
               </button>
