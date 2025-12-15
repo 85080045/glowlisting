@@ -368,12 +368,12 @@ export default function UploadSection({
                   onChange={(e) => setPrivacyOptions({ ...privacyOptions, blurFaces: e.target.checked })}
                   className="sr-only"
                 />
-                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out ${
+                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out relative flex items-center ${
                   privacyOptions.blurFaces 
                     ? 'bg-blue-600 shadow-lg shadow-blue-500/50' 
                     : 'bg-gray-700'
                 }`}>
-                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out mt-1 ${
+                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out absolute ${
                     privacyOptions.blurFaces ? 'translate-x-6' : 'translate-x-1'
                   }`}></div>
                 </div>
@@ -393,12 +393,12 @@ export default function UploadSection({
                   onChange={(e) => setPrivacyOptions({ ...privacyOptions, blurLicensePlates: e.target.checked })}
                   className="sr-only"
                 />
-                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out ${
+                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out relative flex items-center ${
                   privacyOptions.blurLicensePlates 
                     ? 'bg-blue-600 shadow-lg shadow-blue-500/50' 
                     : 'bg-gray-700'
                 }`}>
-                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out mt-1 ${
+                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out absolute ${
                     privacyOptions.blurLicensePlates ? 'translate-x-6' : 'translate-x-1'
                   }`}></div>
                 </div>
@@ -418,12 +418,12 @@ export default function UploadSection({
                   onChange={(e) => setPrivacyOptions({ ...privacyOptions, removeSmallObjects: e.target.checked })}
                   className="sr-only"
                 />
-                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out ${
+                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out relative flex items-center ${
                   privacyOptions.removeSmallObjects 
                     ? 'bg-blue-600 shadow-lg shadow-blue-500/50' 
                     : 'bg-gray-700'
                 }`}>
-                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out mt-1 ${
+                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out absolute ${
                     privacyOptions.removeSmallObjects ? 'translate-x-6' : 'translate-x-1'
                   }`}></div>
                 </div>
