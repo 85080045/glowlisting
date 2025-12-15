@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { GripVertical } from 'lucide-react'
+import { useLanguage } from '../contexts/LanguageContext'
 
 export default function BeforeAfterSlider({ beforeImage, afterImage, className = '' }) {
+  const { t } = useLanguage()
   const [sliderPosition, setSliderPosition] = useState(50)
   const [isDragging, setIsDragging] = useState(false)
   const containerRef = useRef(null)
@@ -106,10 +108,10 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, className =
 
       {/* Labels */}
       <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg text-white text-sm font-semibold">
-        Before
+        {t('detailedFeatures.before') || 'Before'}
       </div>
       <div className="absolute top-4 right-4 bg-blue-600/90 backdrop-blur-sm px-3 py-1.5 rounded-lg text-white text-sm font-semibold">
-        After
+        {t('detailedFeatures.after') || 'After'}
       </div>
     </div>
   )
