@@ -2785,16 +2785,20 @@ app.post('/api/enhance', upload.single('image'), async (req, res) => {
     // 获取隐私保护选项
     const blurFaces = req.body.blurFaces === 'true' || req.body.blurFaces === true
     const blurLicensePlates = req.body.blurLicensePlates === 'true' || req.body.blurLicensePlates === true
+    const removeSmallObjects = req.body.removeSmallObjects === 'true' || req.body.removeSmallObjects === true
     
     // 构建隐私保护提示
     let privacyPrompt = ''
-    if (blurFaces || blurLicensePlates) {
-      privacyPrompt = '\n\n9. 隐私保护 (Privacy Protection)\n\n'
+    if (blurFaces || blurLicensePlates || removeSmallObjects) {
+      privacyPrompt = '\n\n9. 隐私保护与清理 (Privacy Protection & Cleanup)\n\n'
       if (blurFaces) {
         privacyPrompt += '人脸模糊处理：自动检测图片中的所有可见人脸，应用自然、柔和的模糊效果。模糊程度应足够保护隐私，但不应过于明显或破坏整体画面美感。模糊区域应与周围环境自然融合，避免生硬的边缘或明显的处理痕迹。\n\n'
       }
       if (blurLicensePlates) {
         privacyPrompt += '车牌模糊处理：自动检测图片中的所有可见车牌（包括汽车、摩托车等交通工具的车牌），应用适当的模糊效果。确保车牌号码完全不可识别，同时保持车辆外观的自然。模糊应均匀且不突兀。\n\n'
+      }
+      if (removeSmallObjects) {
+        privacyPrompt += '小物体移除：自动检测并移除图片中桌子、地板、沙发、床、椅子上可见的小物体（如杂物、小物品、临时物品等）。移除时应保持表面自然、干净，避免留下明显的移除痕迹或空白区域。确保移除后的表面与周围环境自然融合，保持整体画面的整洁和专业感。\n\n'
       }
       privacyPrompt += '重要：隐私保护处理应在所有其他增强步骤之后进行，确保模糊效果应用于最终增强的图像上。'
     }

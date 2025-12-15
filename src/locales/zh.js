@@ -392,6 +392,8 @@ export const zh = {
     blurFacesDesc: '自动检测并模糊图片中的人脸，保护隐私',
     blurLicensePlates: '模糊车牌',
     blurLicensePlatesDesc: '自动检测并模糊图片中的车牌，保护隐私',
+    removeSmallObjects: '清理 - 移除小物体',
+    removeSmallObjectsDesc: '移除桌子、地板、书桌、沙发、床和椅子上的小物体',
     requiresLogin: '请注册或登录以使用此服务。正在跳转到登录页面...',
     queue: '批量队列',
     queueTotal: '总数',

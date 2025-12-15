@@ -33,6 +33,7 @@ export default function UploadSection({
   const [privacyOptions, setPrivacyOptions] = useState({
     blurFaces: false,      // 模糊人脸
     blurLicensePlates: false, // 模糊车牌
+    removeSmallObjects: false, // 移除小物体
   })
 
   // 错误消息映射函数：将英文错误消息转换为翻译键
@@ -315,7 +316,7 @@ export default function UploadSection({
     setImageId(null)
     setError(null)
     setShowCompare(false) // 关闭对比视图
-    setPrivacyOptions({ blurFaces: false, blurLicensePlates: false }) // 重置隐私选项
+    setPrivacyOptions({ blurFaces: false, blurLicensePlates: false, removeSmallObjects: false }) // 重置隐私选项
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -399,6 +400,31 @@ export default function UploadSection({
                 }`}>
                   <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out mt-1 ${
                     privacyOptions.blurLicensePlates ? 'translate-x-6' : 'translate-x-1'
+                  }`}></div>
+                </div>
+              </div>
+            </label>
+            
+            {/* 移除小物体开关 */}
+            <label className="flex items-center justify-between cursor-pointer group">
+              <div className="flex-1 pr-4">
+                <span className="text-white font-medium block mb-1">{t('upload.removeSmallObjects')}</span>
+                <p className="text-sm text-gray-400">{t('upload.removeSmallObjectsDesc')}</p>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={privacyOptions.removeSmallObjects}
+                  onChange={(e) => setPrivacyOptions({ ...privacyOptions, removeSmallObjects: e.target.checked })}
+                  className="sr-only"
+                />
+                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out ${
+                  privacyOptions.removeSmallObjects 
+                    ? 'bg-blue-600 shadow-lg shadow-blue-500/50' 
+                    : 'bg-gray-700'
+                }`}>
+                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out mt-1 ${
+                    privacyOptions.removeSmallObjects ? 'translate-x-6' : 'translate-x-1'
                   }`}></div>
                 </div>
               </div>

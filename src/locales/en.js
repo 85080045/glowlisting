@@ -392,6 +392,8 @@ export const en = {
     blurFacesDesc: 'Automatically detect and blur faces in the image to protect privacy',
     blurLicensePlates: 'Blur License Plates',
     blurLicensePlatesDesc: 'Automatically detect and blur license plates to protect privacy',
+    removeSmallObjects: 'Cleanup - Remove Small Objects',
+    removeSmallObjectsDesc: 'Remove small objects on tables, floors, desks, couches, beds, and chairs',
     requiresLogin: 'Please register or login to use this service. Redirecting to login page...',
     queue: 'Batch queue',
     queueTotal: 'Total',
