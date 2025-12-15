@@ -1,6 +1,7 @@
 import { Image, Layers, Sun, Palette, Maximize2, Lightbulb, FileImage, Shield, Sparkles } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import ScrollReveal, { ScrollRevealItem } from './ScrollReveal'
+import BeforeAfterSlider from './BeforeAfterSlider'
 
 export default function DetailedFeatures() {
   const { t } = useLanguage()
@@ -11,36 +12,48 @@ export default function DetailedFeatures() {
       title: t('detailedFeatures.hdr.title'),
       description: t('detailedFeatures.hdr.desc'),
       beforeAfter: true,
+      beforeImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80&auto=format',
+      afterImage: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=1200&q=80&auto=format',
     },
     {
       icon: <Maximize2 className="h-8 w-8" />,
       title: t('detailedFeatures.windowPull.title'),
       description: t('detailedFeatures.windowPull.desc'),
       beforeAfter: true,
+      beforeImage: 'https://images.unsplash.com/photo-1505843513577-22bb7d21e455?w=1200&q=80&auto=format',
+      afterImage: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80&auto=format',
     },
     {
       icon: <Sun className="h-8 w-8" />,
       title: t('detailedFeatures.skyReplacement.title'),
       description: t('detailedFeatures.skyReplacement.desc'),
       beforeAfter: true,
+      beforeImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80&auto=format',
+      afterImage: 'https://images.unsplash.com/photo-1560448075-cbc16bb4af33?w=1200&q=80&auto=format',
     },
     {
       icon: <Palette className="h-8 w-8" />,
       title: t('detailedFeatures.whiteBalance.title'),
       description: t('detailedFeatures.whiteBalance.desc'),
       beforeAfter: true,
+      beforeImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200&q=80&auto=format',
+      afterImage: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80&auto=format',
     },
     {
       icon: <Image className="h-8 w-8" />,
       title: t('detailedFeatures.perspective.title'),
       description: t('detailedFeatures.perspective.desc'),
       beforeAfter: true,
+      beforeImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80',
+      afterImage: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
     },
     {
       icon: <Lightbulb className="h-8 w-8" />,
       title: t('detailedFeatures.relighting.title'),
       description: t('detailedFeatures.relighting.desc'),
       beforeAfter: true,
+      beforeImage: 'https://images.unsplash.com/photo-1556912172-45b7abe8b7e4?w=1200&q=80&auto=format',
+      afterImage: 'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=1200&q=80&auto=format',
     },
     {
       icon: <FileImage className="h-8 w-8" />,
@@ -53,12 +66,16 @@ export default function DetailedFeatures() {
       title: t('detailedFeatures.privacy.title'),
       description: t('detailedFeatures.privacy.desc'),
       beforeAfter: true,
+      beforeImage: 'https://images.unsplash.com/photo-1505843513577-22bb7d21e455?w=1200&q=80&auto=format',
+      afterImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200&q=80&auto=format',
     },
     {
       icon: <Sparkles className="h-8 w-8" />,
       title: t('detailedFeatures.colorCorrection.title'),
       description: t('detailedFeatures.colorCorrection.desc'),
       beforeAfter: true,
+      beforeImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80&auto=format',
+      afterImage: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=1200&q=80&auto=format',
     },
   ]
 
@@ -96,7 +113,13 @@ export default function DetailedFeatures() {
               </div>
               
               <div className="flex-1 w-full">
-                {feature.beforeAfter ? (
+                {feature.beforeAfter && feature.beforeImage && feature.afterImage ? (
+                  <BeforeAfterSlider 
+                    beforeImage={feature.beforeImage}
+                    afterImage={feature.afterImage}
+                    className="border border-gray-700"
+                  />
+                ) : feature.beforeAfter ? (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="glass-dark rounded-lg p-4 mb-2 text-sm text-gray-400 text-center">
