@@ -4,6 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { enhanceImage, downloadHDImage } from '../services/enhanceService'
 import heic2any from 'heic2any'
+import BeforeAfterSlider from './BeforeAfterSlider'
 
 export default function UploadSection({ 
   uploadedImage, 
@@ -20,7 +21,6 @@ export default function UploadSection({
   const [imageId, setImageId] = useState(null) // 保存图像 ID 用于下载高清版本
   const [isDownloading, setIsDownloading] = useState(false)
   const [showCompare, setShowCompare] = useState(false) // 是否显示对比视图
-  const [comparePosition, setComparePosition] = useState(50) // 对比滑块位置 (0-100)
   const [isConvertingHeic, setIsConvertingHeic] = useState(false) // HEIC 转换状态
   const [regenerateCount, setRegenerateCount] = useState(0) // 当前重新生成次数
   const [remainingRegenerates, setRemainingRegenerates] = useState(3) // 剩余重新生成次数
@@ -298,7 +298,6 @@ export default function UploadSection({
     setImageId(null)
     setError(null)
     setShowCompare(false) // 关闭对比视图
-    setComparePosition(50) // 重置对比位置
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -664,7 +663,7 @@ export default function UploadSection({
           </div>
         )}
 
-        {/* 对比视图 - 揭示式对比效果：原图在底，增强图覆盖在上，拖动滑块揭示原图 */}
+        {/* 对比视图 - 使用 BeforeAfterSlider 组件 */}
         {showCompare && uploadedImage && enhancedImage && (
           <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="relative w-full max-w-7xl bg-gray-900 rounded-2xl p-6 md:p-8 shadow-2xl">
@@ -679,157 +678,21 @@ export default function UploadSection({
 
               {/* 标题 */}
               <h3 className="text-2xl md:text-3xl font-bold text-white mb-6 text-center">
-                {t('upload.compareTitle')}
+                {t('upload.compareTitle') || 'Compare Original vs Enhanced'}
               </h3>
 
-              {/* 对比容器 - 揭示式对比 */}
-              <div 
-                className="relative w-full rounded-xl overflow-hidden bg-gray-800 shadow-2xl cursor-ew-resize"
-                style={{ 
-                  aspectRatio: '16/9', 
-                  minHeight: '400px',
-                  maxHeight: '80vh'
-                }}
-                onMouseDown={(e) => {
-                  // 点击容器任意位置也可以拖动
-                  if (e.target === e.currentTarget || e.target.closest('img')) {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    const x = e.clientX - rect.left
-                    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100))
-                    setComparePosition(percentage)
-                    
-                    const handleMouseMove = (moveEvent) => {
-                      const newX = moveEvent.clientX - rect.left
-                      const newPercentage = Math.max(0, Math.min(100, (newX / rect.width) * 100))
-                      setComparePosition(newPercentage)
-                    }
-                    
-                    const handleMouseUp = () => {
-                      document.removeEventListener('mousemove', handleMouseMove)
-                      document.removeEventListener('mouseup', handleMouseUp)
-                    }
-                    
-                    document.addEventListener('mousemove', handleMouseMove)
-                    document.addEventListener('mouseup', handleMouseUp)
-                  }
-                }}
-              >
-                {/* 原图背景 - 始终完整显示在底层（底图） */}
-                {uploadedImage ? (
-                  <div className="absolute inset-0" style={{ zIndex: 1 }}>
-                    <img
-                      src={uploadedImage}
-                      alt={t('upload.original')}
-                      className="w-full h-full object-contain"
-                      style={{ 
-                        display: 'block', 
-                        userSelect: 'none', 
-                        pointerEvents: 'none',
-                        width: '100%',
-                        height: '100%'
-                      }}
-                      draggable={false}
-                    />
-                  </div>
-                ) : null}
-
-                {/* 增强图覆盖层 - 完整覆盖原图，但只显示左边部分，拖动滑块时逐渐揭示更多增强图 */}
-                {enhancedImage ? (
-                  <div
-                    className="absolute inset-0 overflow-hidden"
-                    style={{
-                      zIndex: 2,
-                      clipPath: `inset(0 ${100 - comparePosition}% 0 0)`,
-                    }}
-                  >
-                    <img
-                      src={enhancedImage}
-                      alt={t('upload.enhanced')}
-                      className="w-full h-full object-contain"
-                      style={{ 
-                        display: 'block', 
-                        userSelect: 'none', 
-                        pointerEvents: 'none',
-                        width: '100%',
-                        height: '100%'
-                      }}
-                      draggable={false}
-                    />
-                  </div>
-                ) : null}
-
-                {/* 滑块控制条 - 拖动时揭示原图 */}
-                <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-white/90 shadow-2xl z-30 touch-none cursor-ew-resize"
-                  style={{ 
-                    left: `${comparePosition}%`, 
-                    transform: 'translateX(-50%)',
-                    boxShadow: '0 0 20px rgba(255, 255, 255, 0.5)'
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const container = e.currentTarget.parentElement
-                    const rect = container.getBoundingClientRect()
-                    
-                    const handleMouseMove = (moveEvent) => {
-                      const x = moveEvent.clientX - rect.left
-                      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100))
-                      setComparePosition(percentage)
-                    }
-                    
-                    const handleMouseUp = () => {
-                      document.removeEventListener('mousemove', handleMouseMove)
-                      document.removeEventListener('mouseup', handleMouseUp)
-                    }
-                    
-                    document.addEventListener('mousemove', handleMouseMove)
-                    document.addEventListener('mouseup', handleMouseUp)
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const container = e.currentTarget.parentElement
-                    const rect = container.getBoundingClientRect()
-                    
-                    const handleTouchMove = (moveEvent) => {
-                      const touch = moveEvent.touches[0] || moveEvent.changedTouches[0]
-                      const x = touch.clientX - rect.left
-                      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100))
-                      setComparePosition(percentage)
-                    }
-                    
-                    const handleTouchEnd = () => {
-                      document.removeEventListener('touchmove', handleTouchMove)
-                      document.removeEventListener('touchend', handleTouchEnd)
-                    }
-                    
-                    document.addEventListener('touchmove', handleTouchMove, { passive: false })
-                    document.addEventListener('touchend', handleTouchEnd)
-                  }}
-                >
-                  {/* 圆形滑块按钮 */}
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-full p-3 shadow-2xl border-2 border-gray-200 hover:scale-110 transition-transform">
-                    <div className="flex items-center space-x-1">
-                      <ChevronLeft className="h-4 w-4 text-gray-700" />
-                      <div className="w-1 h-4 bg-gray-400 rounded"></div>
-                      <ChevronRight className="h-4 w-4 text-gray-700" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Before/After 标签 */}
-                <div className="absolute top-6 left-6 bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-lg shadow-xl z-20">
-                  <span className="text-gray-900 font-bold text-sm md:text-base">{t('upload.compareOriginal')}</span>
-                </div>
-                <div className="absolute top-6 right-6 bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-lg shadow-xl z-20">
-                  <span className="text-gray-900 font-bold text-sm md:text-base">{t('upload.compareEnhanced')}</span>
-                </div>
+              {/* 使用 BeforeAfterSlider 组件 */}
+              <div className="w-full" style={{ maxHeight: '80vh' }}>
+                <BeforeAfterSlider 
+                  beforeImage={uploadedImage}
+                  afterImage={enhancedImage}
+                  className="border border-gray-700"
+                />
               </div>
 
               {/* 提示文字 */}
               <p className="text-center text-gray-400 mt-6 text-sm md:text-base">
-                {t('upload.compareHint')}
+                {t('upload.compareHint') || 'Drag the slider to compare'}
               </p>
             </div>
           </div>
