@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { GripVertical } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 
-export default function BeforeAfterSlider({ beforeImage, afterImage, className = '' }) {
+export default function BeforeAfterSlider({ beforeImage, afterImage, className = '', aspectRatio = '16/9', objectFit = 'cover' }) {
   const { t } = useLanguage()
   const [sliderPosition, setSliderPosition] = useState(50)
   const [isDragging, setIsDragging] = useState(false)
@@ -62,18 +62,23 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, className =
     }
   }, [isDragging])
 
+  // 如果 aspectRatio 是 'auto'，则不设置 aspectRatio，让图片自然显示
+  const containerStyle = aspectRatio === 'auto' 
+    ? { minHeight: '400px' }
+    : { aspectRatio: aspectRatio }
+  
   return (
     <div 
       ref={containerRef}
       className={`relative w-full rounded-lg overflow-hidden shadow-2xl ${className}`}
-      style={{ aspectRatio: '16/9' }}
+      style={containerStyle}
     >
       {/* Before Image (Background) */}
       <div className="absolute inset-0">
         <img 
           src={beforeImage} 
           alt="Before" 
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-${objectFit}`}
           draggable={false}
         />
       </div>
@@ -86,7 +91,7 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, className =
         <img 
           src={afterImage} 
           alt="After" 
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-${objectFit}`}
           draggable={false}
         />
       </div>

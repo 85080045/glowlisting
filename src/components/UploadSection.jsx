@@ -687,6 +687,8 @@ export default function UploadSection({
                   beforeImage={uploadedImage}
                   afterImage={enhancedImage}
                   className="border border-gray-700"
+                  aspectRatio="auto"
+                  objectFit="contain"
                 />
               </div>
 
