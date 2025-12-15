@@ -334,6 +334,7 @@ export const zh = {
     feature3Desc: '自然的增强效果，符合房地产平台标准。无虚假景观或误导性修改。',
     moneySaved: '为客户节省的总金额',
     moneySavedDesc: '我们的客户通过使用 GlowListing 而非聘请专业摄影师，已节省超过 $30,000',
+    trustTitle: '值得信赖 · 安全合规',
   },
   
   // Upload Section

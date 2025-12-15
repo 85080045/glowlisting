@@ -73,6 +73,29 @@ export default function Hero() {
           </p>
         </ScrollReveal>
         
+        {/* Trust Badges */}
+        <ScrollReveal variant="fade" delay={0.12}>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 md:gap-4">
+            <span className="text-xs md:text-sm text-gray-400 uppercase tracking-[0.2em]">
+              {t('hero.trustTitle')}
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">
+              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-100 text-xs md:text-sm font-medium">
+                Stripe Secure Checkout
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-100 text-xs md:text-sm font-medium">
+                PCI-DSS Ready
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-100 text-xs md:text-sm font-medium">
+                SSL/TLS Encrypted
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-100 text-xs md:text-sm font-medium">
+                Data Privacy
+              </div>
+            </div>
+          </div>
+        </ScrollReveal>
+
         <ScrollReveal variant="slideUp" delay={0.15}>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
             <button className="btn-primary text-lg px-10 py-4 flex items-center space-x-2 relative">

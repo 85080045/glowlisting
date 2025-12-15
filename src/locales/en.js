@@ -334,6 +334,7 @@ export const en = {
     feature3Desc: 'Natural enhancements that meet real estate platform standards. No fake views or misleading changes.',
     moneySaved: 'Total Money Saved for Our Clients',
     moneySavedDesc: 'Our clients have saved over $30,000 by using GlowListing instead of hiring professional photographers',
+    trustTitle: 'TRUSTED & SECURE',
   },
   
   // Upload Section
