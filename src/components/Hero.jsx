@@ -1,9 +1,14 @@
-import { Sparkles, Upload, Zap, ShieldCheck, Lock, Shield } from 'lucide-react'
+import { Sparkles, ShieldCheck, Lock, Shield } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import ScrollReveal, { ScrollRevealItem } from './ScrollReveal'
+import BeforeAfterSlider from './BeforeAfterSlider'
 
 export default function Hero() {
   const { t } = useLanguage()
+  
+  // Hero 对比图片 - 使用房地产相关的图片
+  const heroBeforeImage = 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80&auto=format'
+  const heroAfterImage = 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1200&q=80&auto=format'
   
   return (
     <section className="relative pt-0 pb-16 md:pb-20 px-4 overflow-visible min-h-screen flex items-center" style={{ marginTop: '-80px', paddingTop: '80px' }}>
@@ -28,127 +33,96 @@ export default function Hero() {
       {/* 背景装饰 - 微妙的网格 */}
       <div className="absolute inset-0 tech-grid opacity-5 z-10"></div>
       
-      <div className="relative max-w-7xl mx-auto text-center z-20">
-        <ScrollReveal variant="fadeScale" delay={0}>
-          <div className="inline-flex items-center space-x-2 bg-blue-500/20 border border-blue-400/30 text-blue-300 px-5 py-2.5 rounded-full text-sm font-semibold mb-8 shadow-lg backdrop-blur-sm">
-            <Sparkles className="h-4 w-4" />
-            <span>{t('hero.badge')}</span>
-          </div>
-        </ScrollReveal>
-        
-        <ScrollReveal variant="slideUp" delay={0.05}>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-6 md:mb-8 leading-tight px-2">
-            {t('hero.title')}
-            <br />
-            <span className="gradient-text">{t('hero.titleHighlight')}</span>
-          </h1>
-        </ScrollReveal>
-        
-        <ScrollReveal variant="fade" delay={0.1}>
-          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 mb-8 md:mb-10 max-w-3xl mx-auto leading-relaxed px-4">
-            {t('hero.description')}
-          </p>
-        </ScrollReveal>
-        
-        {/* Trust Badges */}
-        <ScrollReveal variant="fade" delay={0.12}>
-          <div className="mt-8 flex flex-col items-center space-y-4">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/40 text-emerald-200 text-[11px] md:text-xs tracking-[0.25em] uppercase">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span>{t('hero.trustTitle')}</span>
+      <div className="relative max-w-7xl mx-auto z-20 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          {/* 左侧：Before/After Slider */}
+          <ScrollReveal variant="fadeScale" delay={0}>
+            <div className="w-full">
+              <BeforeAfterSlider
+                beforeImage={heroBeforeImage}
+                afterImage={heroAfterImage}
+                aspectRatio="4/3"
+                objectFit="cover"
+                className="shadow-2xl"
+              />
             </div>
-            <div className="w-full max-w-3xl grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-              <div className="glass-dark rounded-2xl px-4 py-3 flex items-center gap-3 border border-white/10">
-                <div className="px-2.5 py-1 rounded-md bg-white text-[#635bff] text-xs font-black tracking-wide shadow-sm">
-                  stripe
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-[11px] md:text-xs font-semibold text-gray-100">
-                    {t('hero.trustStripe')}
-                  </p>
-                  <p className="text-[10px] text-gray-400 hidden md:block">
-                    {t('hero.trustStripeDesc')}
-                  </p>
-                </div>
-              </div>
-              <div className="glass-dark rounded-2xl px-4 py-3 flex items-center gap-3 border border-white/10">
-                <div className="p-2 rounded-full bg-blue-500/20 text-blue-300">
-                  <Lock className="h-4 w-4" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-[11px] md:text-xs font-semibold text-gray-100">
-                    {t('hero.trustSecurity')}
-                  </p>
-                  <p className="text-[10px] text-gray-400 hidden md:block">
-                    {t('hero.trustSecurityDesc')}
-                  </p>
-                </div>
-              </div>
-              <div className="glass-dark rounded-2xl px-4 py-3 flex items-center gap-3 border border-white/10">
-                <div className="p-2 rounded-full bg-cyan-500/20 text-cyan-300">
-                  <Shield className="h-4 w-4" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-[11px] md:text-xs font-semibold text-gray-100">
-                    {t('hero.trustCompliance')}
-                  </p>
-                  <p className="text-[10px] text-gray-400 hidden md:block">
-                    {t('hero.trustComplianceDesc')}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </ScrollReveal>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
-          <ScrollRevealItem variant="fadeScale" delay={0.05}>
-            <div className="card-glass text-center">
-              <div className="bg-gradient-to-br from-blue-500 to-cyan-500 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <Zap className="h-10 w-10 text-white" />
-              </div>
-              <h3 className="text-xl font-bold mb-3 text-white">{t('hero.feature1')}</h3>
-              <p className="text-gray-300 leading-relaxed">{t('hero.feature1Desc')}</p>
-            </div>
-          </ScrollRevealItem>
+          </ScrollReveal>
           
-          <ScrollRevealItem variant="fadeScale" delay={0.1}>
-            <div className="card-glass text-center">
-              <div className="bg-gradient-to-br from-cyan-500 to-blue-500 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <Upload className="h-10 w-10 text-white" />
+          {/* 右侧：文字内容 */}
+          <div className="text-left lg:text-left">
+            <ScrollReveal variant="fadeScale" delay={0}>
+              <div className="inline-flex items-center space-x-2 bg-blue-500/20 border border-blue-400/30 text-blue-300 px-5 py-2.5 rounded-full text-sm font-semibold mb-6 shadow-lg backdrop-blur-sm">
+                <Sparkles className="h-4 w-4" />
+                <span>{t('hero.badge')}</span>
               </div>
-              <h3 className="text-xl font-bold mb-3 text-white">{t('hero.feature2')}</h3>
-              <p className="text-gray-300 leading-relaxed">{t('hero.feature2Desc')}</p>
-            </div>
-          </ScrollRevealItem>
-          
-          <ScrollRevealItem variant="fadeScale" delay={0.15}>
-            <div className="card-glass text-center">
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-500 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <Sparkles className="h-10 w-10 text-white" />
+            </ScrollReveal>
+            
+            <ScrollReveal variant="slideUp" delay={0.05}>
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-6 md:mb-8 leading-tight">
+                {t('hero.title')}
+                <br />
+                <span className="gradient-text">{t('hero.titleHighlight')}</span>
+              </h1>
+            </ScrollReveal>
+            
+            <ScrollReveal variant="fade" delay={0.1}>
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 mb-8 md:mb-10 leading-relaxed">
+                {t('hero.description')}
+              </p>
+            </ScrollReveal>
+            
+            {/* Trust Badges */}
+            <ScrollReveal variant="fade" delay={0.12}>
+              <div className="mt-8 flex flex-col space-y-4">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/40 text-emerald-200 text-[11px] md:text-xs tracking-[0.25em] uppercase w-fit">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>{t('hero.trustTitle')}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+                  <div className="glass-dark rounded-2xl px-4 py-3 flex items-center gap-3 border border-white/10">
+                    <div className="px-2.5 py-1 rounded-md bg-white text-[#635bff] text-xs font-black tracking-wide shadow-sm">
+                      stripe
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-[11px] md:text-xs font-semibold text-gray-100">
+                        {t('hero.trustStripe')}
+                      </p>
+                      <p className="text-[10px] text-gray-400 hidden md:block">
+                        {t('hero.trustStripeDesc')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="glass-dark rounded-2xl px-4 py-3 flex items-center gap-3 border border-white/10">
+                    <div className="p-2 rounded-full bg-blue-500/20 text-blue-300">
+                      <Lock className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-[11px] md:text-xs font-semibold text-gray-100">
+                        {t('hero.trustSecurity')}
+                      </p>
+                      <p className="text-[10px] text-gray-400 hidden md:block">
+                        {t('hero.trustSecurityDesc')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="glass-dark rounded-2xl px-4 py-3 flex items-center gap-3 border border-white/10">
+                    <div className="p-2 rounded-full bg-cyan-500/20 text-cyan-300">
+                      <Shield className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-[11px] md:text-xs font-semibold text-gray-100">
+                        {t('hero.trustCompliance')}
+                      </p>
+                      <p className="text-[10px] text-gray-400 hidden md:block">
+                        {t('hero.trustComplianceDesc')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-xl font-bold mb-3 text-white">{t('hero.feature3')}</h3>
-              <p className="text-gray-300 leading-relaxed">{t('hero.feature3Desc')}</p>
-            </div>
-          </ScrollRevealItem>
+            </ScrollReveal>
+          </div>
         </div>
-
-        {/* 节省金额统计 */}
-        <ScrollReveal variant="fadeScale" delay={0.2}>
-          <div className="mt-16 glass-dark rounded-3xl p-8 md:p-12 border border-blue-500/30">
-            <div className="text-center">
-              <p className="text-lg md:text-xl text-gray-300 mb-4">
-                {t('hero.moneySaved')}
-              </p>
-              <div className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 mb-2">
-                $30,000+
-              </div>
-              <p className="text-sm md:text-base text-gray-400">
-                {t('hero.moneySavedDesc')}
-              </p>
-            </div>
-          </div>
-        </ScrollReveal>
       </div>
     </section>
   )
