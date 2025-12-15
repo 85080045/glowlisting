@@ -3084,14 +3084,49 @@ B. 室外照片 (Facade/Garden)：
               const enhancedBase64 = enhancedImageBase64 // 增强图 base64
               const thumbnailBase64 = thumbnailBuffer.toString('base64') // 缩略图 base64
               
-              // 如果是重新生成，更新现有记录；否则创建新记录
+              // 如果是重新生成，通过 hd_path 查找并更新现有记录；否则创建新记录
               if (isRegenerate && regenerateInfo.originalImageId) {
-                await query(
-                  `UPDATE images 
-                   SET enhanced_data = $1, thumbnail_data = $2, updated_at = NOW()
-                   WHERE id = $3 AND user_id = $4`,
-                  [`data:image/jpeg;base64,${enhancedBase64}`, `data:image/jpeg;base64,${thumbnailBase64}`, imageId, userId]
+                // 通过 hd_path 查找数据库记录（因为 hd_path 是基于时间戳格式的 imageId）
+                const hdPath = `hd-${regenerateInfo.originalImageId}.jpg`
+                const existingImage = await query(
+                  `SELECT id FROM images WHERE user_id = $1 AND hd_path = $2`,
+                  [userId, hdPath]
                 )
+                
+                if (existingImage.rows.length > 0) {
+                  // 找到现有记录，更新它
+                  const dbImageId = existingImage.rows[0].id
+                  await query(
+                    `UPDATE images 
+                     SET enhanced_data = $1, thumbnail_data = $2, updated_at = NOW()
+                     WHERE id = $3 AND user_id = $4`,
+                    [`data:image/jpeg;base64,${enhancedBase64}`, `data:image/jpeg;base64,${thumbnailBase64}`, dbImageId, userId]
+                  )
+                  // 更新 imageId 为数据库 UUID，用于返回给前端
+                  imageId = dbImageId
+                } else {
+                  // 如果找不到现有记录，创建新记录（可能是数据库迁移或清理导致）
+                  console.warn(`No existing image record found for hd_path: ${hdPath}, creating new record`)
+                  const dbImageId = crypto.randomUUID()
+                  await query(
+                    `INSERT INTO images (id, user_id, filename, original_filename, original_data, enhanced_data, thumbnail_data, file_size, mime_type, hd_path, thumbnail_path)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                    [
+                      dbImageId,
+                      userId,
+                      `glowlisting-enhanced-${regenerateInfo.originalImageId}.jpg`,
+                      req.file?.originalname || 'uploaded-image.jpg',
+                      `data:${mimeType};base64,${originalBase64}`,
+                      `data:image/jpeg;base64,${enhancedBase64}`,
+                      `data:image/jpeg;base64,${thumbnailBase64}`,
+                      req.file?.size || 0,
+                      mimeType,
+                      hdPath,
+                      `thumb-${regenerateInfo.originalImageId}.jpg`
+                    ]
+                  )
+                  imageId = dbImageId
+                }
               } else {
                 // 生成 UUID 作为数据库 ID
                 const dbImageId = crypto.randomUUID()
