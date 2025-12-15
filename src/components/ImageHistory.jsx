@@ -4,9 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useNavigate } from 'react-router-dom'
 import { Image as ImageIcon, Download, Trash2, ArrowLeft, Calendar, Search, Filter } from 'lucide-react'
 import Header from './Header'
-import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+import { downloadHDImage } from '../services/enhanceService'
 
 export default function ImageHistory() {
   const { t } = useLanguage()
@@ -51,21 +49,11 @@ export default function ImageHistory() {
     setError(null)
     
     try {
-      const token = localStorage.getItem('glowlisting_token')
-      if (!token) {
-        setError(t('upload.errorLoginRequired') || 'Please login first')
-        return
-      }
+      // 使用统一的下载服务
+      const result = await downloadHDImage(imageId)
       
-      const response = await axios.get(`${API_URL}/download/${imageId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        responseType: 'blob',
-      })
-
-      // response.data 已经是 Blob，不需要再包装
-      const url = window.URL.createObjectURL(response.data)
+      // 创建下载链接
+      const url = window.URL.createObjectURL(result.blob)
       const link = document.createElement('a')
       link.href = url
       link.setAttribute('download', filename || `glowlisting-enhanced-${imageId}.jpg`)
@@ -74,10 +62,9 @@ export default function ImageHistory() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
       
-      // 更新 token 余额（从响应头获取）
-      const tokensRemaining = response.headers['x-tokens-remaining']
-      if (tokensRemaining && updateTokens) {
-        updateTokens(parseInt(tokensRemaining))
+      // 更新 token 余额
+      if (result.tokensRemaining !== null && result.tokensRemaining !== undefined && updateTokens) {
+        updateTokens(result.tokensRemaining)
       }
     } catch (err) {
       console.error('Download failed:', err)

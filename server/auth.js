@@ -428,10 +428,44 @@ export const setUserTokensAsync = async (userId, amount) => {
 
 export const decrementUserTokensAsync = async (userId, action = 'download') => {
   if (!useDb) return decrementUserTokens(userId, action)
-  const current = await getUserTokensAsync(userId)
-  const newCount = Math.max(0, current - 1)
-  await query('UPDATE tokens_balance SET balance=$1, updated_at=NOW() WHERE user_id=$2', [newCount, userId])
+  
+  // 使用原子操作：直接在数据库层面扣除，避免竞态条件
+  // 使用 RETURNING 确保获取更新后的值
+  const result = await query(
+    `UPDATE tokens_balance 
+     SET balance = GREATEST(0, balance - 1), updated_at = NOW() 
+     WHERE user_id = $1 
+     RETURNING balance`,
+    [userId]
+  )
+  
+  // 如果用户没有余额记录，创建一个（余额为0）
+  if (result.rows.length === 0) {
+    await query(
+      `INSERT INTO tokens_balance (user_id, balance, updated_at) 
+       VALUES ($1, 0, NOW()) 
+       ON CONFLICT (user_id) DO NOTHING`,
+      [userId]
+    )
+    // 再次尝试扣除
+    const retryResult = await query(
+      `UPDATE tokens_balance 
+       SET balance = GREATEST(0, balance - 1), updated_at = NOW() 
+       WHERE user_id = $1 
+       RETURNING balance`,
+      [userId]
+    )
+    const newCount = retryResult.rows.length > 0 ? Number(retryResult.rows[0].balance) : 0
+    await query('INSERT INTO token_usage (user_id, action) VALUES ($1,$2)', [userId, action])
+    return newCount
+  }
+  
+  const newCount = Number(result.rows[0].balance)
+  
+  // 记录token使用
   await query('INSERT INTO token_usage (user_id, action) VALUES ($1,$2)', [userId, action])
+  
+  console.log(`Token deduction: User ${userId}, action: ${action}, new balance: ${newCount}`)
   return newCount
 }
 

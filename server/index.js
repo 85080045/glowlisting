@@ -3312,7 +3312,9 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
     
     // 检查用户是否有足够的 tokens
     const userTokens = await getUserTokensSafe(userId)
+    console.log(`Download: User ${userId} has ${userTokens} tokens`)
     if (userTokens <= 0) {
+      console.error(`Download: User ${userId} has insufficient tokens (${userTokens})`)
       return res.status(403).json({ error: 'Insufficient tokens to download HD version' })
     }
     
@@ -3448,9 +3450,11 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Image file not found' })
     }
     
-    // 扣除一个 token（下载消耗）
+    // 扣除一个 token（下载消耗）- 必须在发送文件前扣除
+    console.log(`Download: Deducting token for user ${userId}, imageId: ${imageId}`)
     const remainingTokens = await decrementUserTokensSafe(userId, 'download')
     await recordTokenUsageSafe(userId, 'download', imageId)
+    console.log(`Download: Token deducted. Remaining tokens: ${remainingTokens}`)
     
     // 设置响应头
     res.setHeader('Content-Type', 'image/jpeg')
