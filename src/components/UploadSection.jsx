@@ -24,6 +24,8 @@ export default function UploadSection({
   const [isConvertingHeic, setIsConvertingHeic] = useState(false) // HEIC 转换状态
   const [regenerateCount, setRegenerateCount] = useState(0) // 当前重新生成次数
   const [remainingRegenerates, setRemainingRegenerates] = useState(3) // 剩余重新生成次数
+  const [showTour, setShowTour] = useState(false) // 首登引导
+  const [loadingSample, setLoadingSample] = useState(false) // 示例图加载中
   // 批量任务队列
   const [tasks, setTasks] = useState([]) // {id,name,dataUrl,status,enhanced,imageId,errorMsg}
   const [activeTaskId, setActiveTaskId] = useState(null)
@@ -35,6 +37,17 @@ export default function UploadSection({
     blurLicensePlates: false, // 模糊车牌
     removeSmallObjects: false, // 移除小物体
   })
+
+  const SAMPLE_IMAGE_URL = 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1600&q=85'
+
+  // 首次进入显示引导
+  useEffect(() => {
+    const seen = localStorage.getItem('glowlisting_tour_seen')
+    if (!seen) {
+      setShowTour(true)
+      localStorage.setItem('glowlisting_tour_seen', '1')
+    }
+  }, [])
 
   // 错误消息映射函数：将英文错误消息转换为翻译键
   const getTranslatedError = (errorMessage) => {
@@ -322,6 +335,35 @@ export default function UploadSection({
     }
   }
 
+  const handleUseSampleImage = async () => {
+    try {
+      setLoadingSample(true)
+      setError(null)
+      const response = await fetch(SAMPLE_IMAGE_URL)
+      const blob = await response.blob()
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const result = reader.result
+        setUploadedImage(result)
+        setEnhancedImage(null)
+        setImageId(null)
+        setShowCompare(false)
+        setRegenerateCount(0)
+        setRemainingRegenerates(3)
+        setTasks([])
+        setActiveTaskId(null)
+        setIsBatchProcessing(false)
+        setIsQueuePaused(false)
+      }
+      reader.readAsDataURL(blob)
+    } catch (sampleErr) {
+      console.error('Failed to load sample image:', sampleErr)
+      setError(t('upload.sampleError') || 'Failed to load sample image')
+    } finally {
+      setLoadingSample(false)
+    }
+  }
+
   return (
     <section className="py-10 md:py-18 px-4 md:px-6 relative overflow-hidden">
       <div className="absolute inset-0 tech-grid opacity-10"></div>
@@ -334,6 +376,37 @@ export default function UploadSection({
             {t('upload.subtitle')}
           </p>
         </div>
+
+        {showTour && (
+          <div className="glass-dark border border-blue-500/40 rounded-xl p-4 md:p-5 mb-6">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+              <div>
+                <p className="text-sm text-blue-200 font-semibold uppercase tracking-wide mb-2">{t('upload.tourTitle')}</p>
+                <ul className="space-y-1 text-gray-200 text-sm leading-relaxed list-disc list-inside">
+                  <li>1) {t('upload.tourStepUpload')}</li>
+                  <li>2) {t('upload.tourStepOptions')}</li>
+                  <li>3) {t('upload.tourStepProcess')}</li>
+                  <li>4) {t('upload.tourStepDownload')}</li>
+                </ul>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleUseSampleImage}
+                  disabled={loadingSample}
+                  className="btn-primary whitespace-nowrap"
+                >
+                  {loadingSample ? t('upload.sampleLoading') : t('upload.sampleCta')}
+                </button>
+                <button
+                  onClick={() => setShowTour(false)}
+                  className="btn-secondary whitespace-nowrap"
+                >
+                  {t('upload.tourDone') || 'Start using'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 额度提示 */}
         {user && (
@@ -465,6 +538,17 @@ export default function UploadSection({
                     <ImageIcon className="h-12 w-12 md:h-16 md:w-16 mx-auto mb-4 text-gray-500" />
                     <p className="text-gray-300 mb-2 text-sm md:text-base">{t('upload.clickOrDrag')}</p>
                     <p className="text-xs md:text-sm text-gray-400">{t('upload.supports')}</p>
+                  </div>
+                )}
+                {!uploadedImage && !isConvertingHeic && (
+                  <div className="mt-3 flex justify-center">
+                    <button
+                      onClick={handleUseSampleImage}
+                      disabled={loadingSample}
+                      className="btn-secondary"
+                    >
+                      {loadingSample ? t('upload.sampleLoading') : t('upload.sampleCta')}
+                    </button>
                   </div>
                 )}
                 <input
