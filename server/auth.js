@@ -259,7 +259,17 @@ export const getUserByIdAsync = async (userId) => {
   if (!useDb) {
     return getUserById(userId)
   }
-  const result = await query('SELECT id, name, email, is_admin, created_at, last_login_at, last_login_ip, last_login_country, last_login_country_code, last_login_city FROM users WHERE id=$1', [userId])
+  // 查询用户信息并计算 totalProcessed
+  const result = await query(
+    `SELECT u.id, u.name, u.email, u.is_admin, u.created_at, u.last_login_at, u.last_login_ip, 
+            u.last_login_country, u.last_login_country_code, u.last_login_city,
+            COALESCE((
+              SELECT COUNT(*) FROM token_usage tu WHERE tu.user_id = u.id AND tu.action = 'process'
+            ),0) AS total_processed
+     FROM users u
+     WHERE u.id=$1`,
+    [userId]
+  )
   if (!result.rows.length) return null
   const row = result.rows[0]
   return {
@@ -268,6 +278,7 @@ export const getUserByIdAsync = async (userId) => {
     email: row.email,
     isAdmin: row.is_admin,
     createdAt: row.created_at,
+    totalProcessed: Number(row.total_processed || 0),
     lastLoginAt: row.last_login_at,
     lastLoginIp: row.last_login_ip,
     lastLoginCountry: row.last_login_country,
@@ -458,7 +469,7 @@ export const getAllUsersAsync = async () => {
     `SELECT u.id, u.name, u.email, u.is_admin, u.created_at,
             COALESCE(tb.balance,0) AS balance,
             COALESCE((
-              SELECT COUNT(*) FROM token_usage tu WHERE tu.user_id = u.id AND tu.action = 'generate'
+              SELECT COUNT(*) FROM token_usage tu WHERE tu.user_id = u.id AND tu.action = 'process'
             ),0) AS total_processed,
             u.last_login_at, u.last_login_ip, u.last_login_country, u.last_login_country_code, u.last_login_city
      FROM users u
