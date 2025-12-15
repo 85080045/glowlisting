@@ -29,7 +29,7 @@ export const LanguageProvider = ({ children }) => {
     localStorage.setItem('glowlisting_language', lang)
   }
 
-  const t = (key) => {
+  const t = (key, params = {}) => {
     const keys = key.split('.')
     let value = translations[language]
     
@@ -39,6 +39,15 @@ export const LanguageProvider = ({ children }) => {
         console.warn(`Translation missing for key: ${key} in language: ${language}`)
         return key
       }
+    }
+    
+    // 如果 value 是字符串且有参数，进行替换
+    if (typeof value === 'string' && Object.keys(params).length > 0) {
+      let result = value
+      for (const [paramKey, paramValue] of Object.entries(params)) {
+        result = result.replace(new RegExp(`\\{\\{${paramKey}\\}\\}`, 'g'), String(paramValue))
+      }
+      return result
     }
     
     return value
