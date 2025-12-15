@@ -1,32 +1,9 @@
 import { Sparkles, Upload, Zap, ShieldCheck, Lock, Shield } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import ScrollReveal, { ScrollRevealItem } from './ScrollReveal'
-import { useNavigate, useLocation } from 'react-router-dom'
 
 export default function Hero() {
   const { t } = useLanguage()
-  const navigate = useNavigate()
-  const location = useLocation()
-  
-  const handleLearnMore = () => {
-    if (location.pathname === '/') {
-      // 如果在主页，直接滚动到 features section
-      const featuresSection = document.getElementById('features')
-      if (featuresSection) {
-        featuresSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-    } else {
-      // 如果不在主页，先跳转到主页
-      navigate('/')
-      // 等待页面加载完成后再滚动
-      setTimeout(() => {
-        const featuresSection = document.getElementById('features')
-        if (featuresSection) {
-          featuresSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
-      }, 100)
-    }
-  }
   
   return (
     <section className="relative pt-0 pb-16 md:pb-20 px-4 overflow-visible min-h-screen flex items-center" style={{ marginTop: '-80px', paddingTop: '80px' }}>
@@ -124,21 +101,6 @@ export default function Hero() {
           </div>
         </ScrollReveal>
 
-        <ScrollReveal variant="slideUp" delay={0.15}>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-            <button className="btn-primary text-lg px-10 py-4 flex items-center space-x-2 relative">
-              <Upload className="h-5 w-5" />
-              <span>{t('hero.startNow')}</span>
-            </button>
-            <button 
-              onClick={handleLearnMore}
-              className="btn-secondary text-lg px-10 py-4"
-            >
-              {t('hero.learnMore')}
-            </button>
-          </div>
-        </ScrollReveal>
-        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
           <ScrollRevealItem variant="fadeScale" delay={0.05}>
             <div className="card-glass text-center">
