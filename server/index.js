@@ -3254,33 +3254,77 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
     const { imageId } = req.params
     const userId = req.userId
     
-    // 查找高清图像文件
-    const hdImagePath = path.join(__dirname, 'uploads', `hd-${imageId}.jpg`)
-    
-    if (!fs.existsSync(hdImagePath)) {
-      return res.status(404).json({ error: 'Image not found' })
+    if (!userId) {
+      return res.status(401).json({ error: 'Please login first' })
     }
+    
+    // 检查用户是否有足够的 tokens
+    const userTokens = await getUserTokensSafe(userId)
+    if (userTokens <= 0) {
+      return res.status(403).json({ error: 'Insufficient tokens to download HD version' })
+    }
+    
+    let hdImagePath = null
+    
+    // 如果使用数据库，先从数据库查找图片记录
+    if (useDb) {
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
+      const result = await query(
+        `SELECT id, hd_path, user_id, created_at
+         FROM images 
+         WHERE id = $1 AND user_id = $2 AND created_at >= $3`,
+        [imageId, userId, thirtyMinutesAgo]
+      )
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Image not found or expired (30 minutes limit)' })
+      }
+      
+      const imageRecord = result.rows[0]
+      // 使用数据库中的 hd_path
+      if (imageRecord.hd_path) {
+        hdImagePath = path.join(__dirname, 'uploads', imageRecord.hd_path)
+      }
+    }
+    
+    // 如果数据库中没有 hd_path，尝试使用 imageId 直接查找
+    if (!hdImagePath) {
+      hdImagePath = path.join(__dirname, 'uploads', `hd-${imageId}.jpg`)
+    }
+    
+    // 检查文件是否存在
+    if (!fs.existsSync(hdImagePath)) {
+      console.error(`HD image file not found: ${hdImagePath}`)
+      return res.status(404).json({ error: 'Image file not found' })
+    }
+    
+    // 扣除一个 token（下载消耗）
+    const remainingTokens = await decrementUserTokensSafe(userId, 'download')
+    await recordTokenUsageSafe(userId, 'download', imageId)
     
     // 设置响应头
     res.setHeader('Content-Type', 'image/jpeg')
     res.setHeader('Content-Disposition', `attachment; filename="glowlisting-enhanced-${imageId}.jpg"`)
-    const remaining = await getUserTokensSafe(userId)
-    res.setHeader('X-Tokens-Remaining', remaining.toString())
+    res.setHeader('X-Tokens-Remaining', remainingTokens.toString())
     
     // 发送文件
     const fileStream = fs.createReadStream(hdImagePath)
     fileStream.pipe(res)
     
-    // 文件发送完成后，可以选择删除文件（可选）
-    // fileStream.on('end', () => {
-    //   fs.unlinkSync(hdImagePath)
-    // })
+    fileStream.on('error', (err) => {
+      console.error('File stream error:', err)
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to read image file' })
+      }
+    })
   } catch (error) {
     console.error('Download error:', error)
-    res.status(500).json({ 
-      error: '下载失败',
-      message: error.message 
-    })
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: 'Download failed',
+        message: error.message 
+      })
+    }
   }
 })
 
