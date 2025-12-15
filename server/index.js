@@ -3301,11 +3301,14 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
     
     let hdImagePath = null
     
+    let imageRecord = null
+    let useDatabaseImage = false
+    
     // 如果使用数据库，先从数据库查找图片记录
     if (useDb) {
       const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
       const result = await query(
-        `SELECT id, hd_path, user_id, created_at
+        `SELECT id, hd_path, enhanced_data, user_id, created_at
          FROM images 
          WHERE id = $1 AND user_id = $2 AND created_at >= $3`,
         [imageId, userId, thirtyMinutesAgo]
@@ -3316,7 +3319,7 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
         return res.status(404).json({ error: 'Image not found or expired (30 minutes limit)' })
       }
       
-      const imageRecord = result.rows[0]
+      imageRecord = result.rows[0]
       console.log(`Download: Found image record. hd_path: ${imageRecord.hd_path}, imageId: ${imageId}`)
       
       // 使用数据库中的 hd_path
@@ -3325,32 +3328,70 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
         hdImagePath = path.join(uploadsDir, imageRecord.hd_path)
         console.log(`Download: Constructed path from hd_path: ${hdImagePath}`)
       } else {
-        console.warn(`Download: hd_path is null for imageId: ${imageId}`)
+        console.warn(`Download: hd_path is null for imageId: ${imageId}, will try to use enhanced_data from database`)
+        useDatabaseImage = true
       }
     }
     
     // 如果数据库中没有 hd_path，尝试使用 imageId 直接查找
-    if (!hdImagePath) {
+    if (!hdImagePath && !useDatabaseImage) {
       const uploadsDir = path.join(__dirname, 'uploads')
       hdImagePath = path.join(uploadsDir, `hd-${imageId}.jpg`)
       console.log(`Download: Using fallback path: ${hdImagePath}`)
     }
     
-    // 检查上传目录是否存在
-    const uploadsDir = path.dirname(hdImagePath)
-    if (!fs.existsSync(uploadsDir)) {
-      console.error(`Download: Uploads directory does not exist: ${uploadsDir}`)
-      return res.status(500).json({ error: 'Uploads directory not found' })
+    // 如果文件路径存在，检查文件是否存在
+    if (hdImagePath) {
+      // 检查上传目录是否存在
+      const uploadsDir = path.dirname(hdImagePath)
+      if (!fs.existsSync(uploadsDir)) {
+        console.warn(`Download: Uploads directory does not exist: ${uploadsDir}, will try database`)
+        useDatabaseImage = true
+        hdImagePath = null
+      } else if (!fs.existsSync(hdImagePath)) {
+        console.warn(`Download: HD image file not found: ${hdImagePath}, will try database`)
+        console.warn(`Download: Uploads directory contents:`, fs.readdirSync(uploadsDir).slice(0, 10))
+        useDatabaseImage = true
+        hdImagePath = null
+      } else {
+        console.log(`Download: File found, proceeding with download: ${hdImagePath}`)
+      }
     }
     
-    // 检查文件是否存在
-    if (!fs.existsSync(hdImagePath)) {
-      console.error(`Download: HD image file not found: ${hdImagePath}`)
-      console.error(`Download: Uploads directory contents:`, fs.readdirSync(uploadsDir).slice(0, 10))
+    // 如果文件不存在，尝试从数据库读取 enhanced_data
+    if (useDatabaseImage && imageRecord && imageRecord.enhanced_data) {
+      console.log(`Download: Using enhanced_data from database as fallback`)
+      const enhancedData = imageRecord.enhanced_data
+      
+      // enhanced_data 可能是 base64 字符串或 data URL
+      let imageBuffer
+      if (enhancedData.startsWith('data:image')) {
+        // 提取 base64 部分
+        const base64Data = enhancedData.split(',')[1]
+        imageBuffer = Buffer.from(base64Data, 'base64')
+      } else {
+        imageBuffer = Buffer.from(enhancedData, 'base64')
+      }
+      
+      // 扣除一个 token（下载消耗）
+      const remainingTokens = await decrementUserTokensSafe(userId, 'download')
+      await recordTokenUsageSafe(userId, 'download', imageId)
+      
+      // 设置响应头
+      res.setHeader('Content-Type', 'image/jpeg')
+      res.setHeader('Content-Disposition', `attachment; filename="glowlisting-enhanced-${imageId}.jpg"`)
+      res.setHeader('X-Tokens-Remaining', remainingTokens.toString())
+      
+      // 发送图片数据
+      res.send(imageBuffer)
+      return
+    }
+    
+    // 如果既没有文件也没有数据库数据，返回错误
+    if (!hdImagePath) {
+      console.error(`Download: No file path and no database image data available`)
       return res.status(404).json({ error: 'Image file not found' })
     }
-    
-    console.log(`Download: File found, proceeding with download: ${hdImagePath}`)
     
     // 扣除一个 token（下载消耗）
     const remainingTokens = await decrementUserTokensSafe(userId, 'download')
