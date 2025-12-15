@@ -3304,33 +3304,30 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
     let imageRecord = null
     let useDatabaseImage = false
     
-    // 如果使用数据库，先从数据库查找图片记录
+    // 如果使用数据库，先从数据库查找图片记录（30分钟内）
     if (useDb) {
-      // 先不限制时间，查找所有记录
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
       let result = await query(
         `SELECT id, hd_path, enhanced_data, user_id, created_at
          FROM images 
-         WHERE id = $1 AND user_id = $2`,
-        [imageId, userId]
+         WHERE id = $1 AND user_id = $2 AND created_at >= $3`,
+        [imageId, userId, thirtyMinutesAgo]
       )
       
-      // 如果没找到，尝试只通过 imageId 查找（可能是权限问题）
       if (result.rows.length === 0) {
-        console.warn(`Download: Image not found with userId check. imageId: ${imageId}, userId: ${userId}. Trying without userId check...`)
-        result = await query(
-          `SELECT id, hd_path, enhanced_data, user_id, created_at
-           FROM images 
-           WHERE id = $1`,
-          [imageId]
+        console.error(`Download: Image not found or expired (30 minutes limit). imageId: ${imageId}, userId: ${userId}`)
+        // 检查图片是否存在但已过期
+        const expiredCheck = await query(
+          `SELECT id, created_at FROM images WHERE id = $1 AND user_id = $2`,
+          [imageId, userId]
         )
-      }
-      
-      if (result.rows.length === 0) {
-        console.error(`Download: Image not found in database. imageId: ${imageId}, userId: ${userId}`)
-        // 检查是否有其他图片记录
-        const allImages = await query(`SELECT COUNT(*) as count FROM images WHERE user_id = $1`, [userId])
-        console.error(`Download: User has ${allImages.rows[0]?.count || 0} total images in database`)
-        return res.status(404).json({ error: 'Image not found' })
+        if (expiredCheck.rows.length > 0) {
+          const createdAt = new Date(expiredCheck.rows[0].created_at)
+          const ageMinutes = (Date.now() - createdAt.getTime()) / (1000 * 60)
+          console.error(`Download: Image exists but expired. Age: ${ageMinutes.toFixed(1)} minutes`)
+          return res.status(404).json({ error: 'Image expired (30 minutes limit). Please process a new image.' })
+        }
+        return res.status(404).json({ error: 'Image not found or expired (30 minutes limit)' })
       }
       
       imageRecord = result.rows[0]
@@ -4008,6 +4005,36 @@ const cleanupOldImages = async () => {
   if (!useDb) return
   try {
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
+    
+    // 先查询要删除的记录，获取 hd_path 以便删除文件
+    const imagesToDelete = await query(
+      `SELECT id, hd_path FROM images WHERE created_at < $1`,
+      [thirtyMinutesAgo]
+    )
+    
+    // 删除文件系统中的文件
+    const uploadsDir = path.join(__dirname, 'uploads')
+    if (fs.existsSync(uploadsDir)) {
+      let deletedFiles = 0
+      for (const image of imagesToDelete.rows) {
+        if (image.hd_path) {
+          const filePath = path.join(uploadsDir, image.hd_path)
+          try {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath)
+              deletedFiles++
+            }
+          } catch (fileError) {
+            console.warn(`Failed to delete file ${filePath}:`, fileError.message)
+          }
+        }
+      }
+      if (deletedFiles > 0) {
+        console.log(`🧹 删除了 ${deletedFiles} 个超过30分钟的图片文件`)
+      }
+    }
+    
+    // 删除数据库记录
     const result = await query(
       `DELETE FROM images WHERE created_at < $1`,
       [thirtyMinutesAgo]
