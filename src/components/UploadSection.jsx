@@ -303,6 +303,7 @@ export default function UploadSection({
     setImageId(null)
     setError(null)
     setShowCompare(false) // 关闭对比视图
+    setPrivacyOptions({ blurFaces: false, blurLicensePlates: false }) // 重置隐私选项
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
