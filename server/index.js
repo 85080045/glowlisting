@@ -3312,26 +3312,45 @@ app.get('/api/download/:imageId', authMiddleware, async (req, res) => {
       )
       
       if (result.rows.length === 0) {
+        console.error(`Download: Image not found in database. imageId: ${imageId}, userId: ${userId}`)
         return res.status(404).json({ error: 'Image not found or expired (30 minutes limit)' })
       }
       
       const imageRecord = result.rows[0]
+      console.log(`Download: Found image record. hd_path: ${imageRecord.hd_path}, imageId: ${imageId}`)
+      
       // 使用数据库中的 hd_path
       if (imageRecord.hd_path) {
-        hdImagePath = path.join(__dirname, 'uploads', imageRecord.hd_path)
+        const uploadsDir = path.join(__dirname, 'uploads')
+        hdImagePath = path.join(uploadsDir, imageRecord.hd_path)
+        console.log(`Download: Constructed path from hd_path: ${hdImagePath}`)
+      } else {
+        console.warn(`Download: hd_path is null for imageId: ${imageId}`)
       }
     }
     
     // 如果数据库中没有 hd_path，尝试使用 imageId 直接查找
     if (!hdImagePath) {
-      hdImagePath = path.join(__dirname, 'uploads', `hd-${imageId}.jpg`)
+      const uploadsDir = path.join(__dirname, 'uploads')
+      hdImagePath = path.join(uploadsDir, `hd-${imageId}.jpg`)
+      console.log(`Download: Using fallback path: ${hdImagePath}`)
+    }
+    
+    // 检查上传目录是否存在
+    const uploadsDir = path.dirname(hdImagePath)
+    if (!fs.existsSync(uploadsDir)) {
+      console.error(`Download: Uploads directory does not exist: ${uploadsDir}`)
+      return res.status(500).json({ error: 'Uploads directory not found' })
     }
     
     // 检查文件是否存在
     if (!fs.existsSync(hdImagePath)) {
-      console.error(`HD image file not found: ${hdImagePath}`)
+      console.error(`Download: HD image file not found: ${hdImagePath}`)
+      console.error(`Download: Uploads directory contents:`, fs.readdirSync(uploadsDir).slice(0, 10))
       return res.status(404).json({ error: 'Image file not found' })
     }
+    
+    console.log(`Download: File found, proceeding with download: ${hdImagePath}`)
     
     // 扣除一个 token（下载消耗）
     const remainingTokens = await decrementUserTokensSafe(userId, 'download')
