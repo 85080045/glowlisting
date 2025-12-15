@@ -165,6 +165,8 @@ export const en = {
     download: 'Download',
     delete: 'Delete',
     confirmDelete: 'Are you sure you want to delete this image?',
+    storageNotice: 'Storage Notice',
+    storageNoticeDesc: 'Our servers only store photos for 30 minutes. Please download your images promptly to avoid losing them.',
   },
   
   // Subscription Management

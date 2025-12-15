@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useNavigate } from 'react-router-dom'
-import { Image as ImageIcon, Download, Trash2, ArrowLeft, Calendar, Search, Filter } from 'lucide-react'
+import { Image as ImageIcon, Download, Trash2, ArrowLeft, Calendar, Search, Filter, AlertTriangle } from 'lucide-react'
 import Header from './Header'
 import { downloadHDImage } from '../services/enhanceService'
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 export default function ImageHistory() {
   const { t } = useLanguage()
@@ -153,6 +156,21 @@ export default function ImageHistory() {
           >
             {t('history.uploadNew')}
           </button>
+        </div>
+
+        {/* 存储提示横幅 */}
+        <div className="bg-amber-900/30 border-l-4 border-amber-500/50 p-4 mb-6 rounded-r-lg backdrop-blur-sm">
+          <div className="flex items-start space-x-3">
+            <AlertTriangle className="h-6 w-6 text-amber-400 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-amber-300 mb-1">
+                {t('history.storageNotice')}
+              </h3>
+              <p className="text-sm text-amber-200">
+                {t('history.storageNoticeDesc')}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* 搜索和筛选 */}

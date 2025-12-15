@@ -165,6 +165,8 @@ export const zh = {
     download: '下载',
     delete: '删除',
     confirmDelete: '确定要删除这张图片吗？',
+    storageNotice: '存储提示',
+    storageNoticeDesc: '我们的服务器只保留照片30分钟，请及时下载，以免丢失。',
   },
   
   // Subscription Management
