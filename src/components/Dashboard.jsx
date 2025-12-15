@@ -8,7 +8,7 @@ import Header from './Header'
 import UploadSection from './UploadSection'
 
 export default function Dashboard() {
-  const { t } = useLanguage()
+  const { t, formatDate } = useLanguage()
   const { user, tokens, logout, fetchUserInfo, loading } = useAuth()
   const navigate = useNavigate()
   const [uploadedImage, setUploadedImage] = useState(null)
@@ -199,7 +199,7 @@ export default function Dashboard() {
               <div className="min-w-0 flex-1">
                 <p className="text-xs md:text-sm text-gray-400">{t('dashboard.memberSince')}</p>
                 <p className="text-base md:text-lg font-semibold text-white">
-                  {new Date(user.createdAt).toLocaleDateString()}
+                  {formatDate(user.createdAt)}
                 </p>
               </div>
             </div>

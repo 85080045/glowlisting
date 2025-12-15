@@ -29,6 +29,45 @@ export const LanguageProvider = ({ children }) => {
     localStorage.setItem('glowlisting_language', lang)
   }
 
+  const locale = language === 'zh' ? 'zh-CN' : 'en-US'
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+
+  const formatDate = (value, options = {}) => {
+    if (!value) return ''
+    try {
+      const date = value instanceof Date ? value : new Date(value)
+      return new Intl.DateTimeFormat(locale, {
+        timeZone,
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        ...options,
+      }).format(date)
+    } catch (e) {
+      console.warn('formatDate error:', e)
+      return ''
+    }
+  }
+
+  const formatDateTime = (value, options = {}) => {
+    if (!value) return ''
+    try {
+      const date = value instanceof Date ? value : new Date(value)
+      return new Intl.DateTimeFormat(locale, {
+        timeZone,
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        ...options,
+      }).format(date)
+    } catch (e) {
+      console.warn('formatDateTime error:', e)
+      return ''
+    }
+  }
+
   const t = (key, params = {}) => {
     const keys = key.split('.')
     let value = translations[language]
@@ -54,7 +93,7 @@ export const LanguageProvider = ({ children }) => {
   }
 
   return (
-    <LanguageContext.Provider value={{ language, changeLanguage, t }}>
+    <LanguageContext.Provider value={{ language, locale, timeZone, changeLanguage, t, formatDate, formatDateTime }}>
       {children}
     </LanguageContext.Provider>
   )

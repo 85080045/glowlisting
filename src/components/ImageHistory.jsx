@@ -16,7 +16,7 @@ const formatCountdown = (seconds) => {
 }
 
 export default function ImageHistory() {
-  const { t } = useLanguage()
+  const { t, formatDateTime } = useLanguage()
   const { user, updateTokens } = useAuth()
   const navigate = useNavigate()
   const [images, setImages] = useState([])
@@ -281,7 +281,7 @@ export default function ImageHistory() {
                     {img.filename || `Image ${img.id}`}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {new Date(img.createdAt).toLocaleString()}
+                    {formatDateTime(img.createdAt)}
                   </p>
                   {remainingSeconds !== null && remainingSeconds > 0 && (
                     <p
