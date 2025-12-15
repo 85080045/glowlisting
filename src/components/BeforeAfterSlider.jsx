@@ -78,7 +78,8 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, className =
         <img 
           src={beforeImage} 
           alt="Before" 
-          className={`w-full h-full object-${objectFit}`}
+          className="w-full h-full"
+          style={{ objectFit: objectFit }}
           draggable={false}
         />
       </div>
@@ -91,7 +92,8 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, className =
         <img 
           src={afterImage} 
           alt="After" 
-          className={`w-full h-full object-${objectFit}`}
+          className="w-full h-full"
+          style={{ objectFit: objectFit }}
           draggable={false}
         />
       </div>
