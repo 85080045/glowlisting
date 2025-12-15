@@ -139,6 +139,7 @@ export default function Header() {
               <LanguageSelector />
             </div>
           </div>
+          </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center space-x-3">
