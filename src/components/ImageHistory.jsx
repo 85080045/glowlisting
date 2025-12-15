@@ -10,12 +10,14 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 export default function ImageHistory() {
   const { t } = useLanguage()
-  const { user } = useAuth()
+  const { user, updateTokens } = useAuth()
   const navigate = useNavigate()
   const [images, setImages] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterDate, setFilterDate] = useState('')
+  const [downloadingId, setDownloadingId] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!user) {
@@ -43,8 +45,18 @@ export default function ImageHistory() {
   }
 
   const handleDownload = async (imageId, filename) => {
+    if (downloadingId === imageId) return // 防止重复点击
+    
+    setDownloadingId(imageId)
+    setError(null)
+    
     try {
       const token = localStorage.getItem('glowlisting_token')
+      if (!token) {
+        setError(t('upload.errorLoginRequired') || 'Please login first')
+        return
+      }
+      
       const response = await axios.get(`${API_URL}/download/${imageId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -52,16 +64,57 @@ export default function ImageHistory() {
         responseType: 'blob',
       })
 
-      const url = window.URL.createObjectURL(new Blob([response.data]))
+      // response.data 已经是 Blob，不需要再包装
+      const url = window.URL.createObjectURL(response.data)
       const link = document.createElement('a')
       link.href = url
       link.setAttribute('download', filename || `glowlisting-enhanced-${imageId}.jpg`)
       document.body.appendChild(link)
       link.click()
-      link.remove()
+      document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
+      
+      // 更新 token 余额（从响应头获取）
+      const tokensRemaining = response.headers['x-tokens-remaining']
+      if (tokensRemaining && updateTokens) {
+        updateTokens(parseInt(tokensRemaining))
+      }
     } catch (err) {
       console.error('Download failed:', err)
+      let errorMessage = t('upload.errorDownloadFailed') || 'Download failed'
+      
+      if (err.response?.status === 403) {
+        errorMessage = t('upload.errorInsufficientTokens') || 'Insufficient tokens to download HD version'
+      } else if (err.response?.status === 404) {
+        errorMessage = t('upload.errorImageNotFound') || 'Image not found or expired'
+      } else if (err.response?.data) {
+        // 当 responseType 是 'blob' 时，错误响应也是 blob，需要解析
+        try {
+          if (err.response.data instanceof Blob) {
+            const errorText = await err.response.data.text()
+            try {
+              const errorJson = JSON.parse(errorText)
+              errorMessage = errorJson.error || errorMessage
+            } catch {
+              errorMessage = errorText || errorMessage
+            }
+          } else if (typeof err.response.data === 'string') {
+            errorMessage = err.response.data
+          } else if (err.response.data.error) {
+            errorMessage = err.response.data.error
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError)
+        }
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
+      // 3秒后清除错误提示
+      setTimeout(() => setError(null), 3000)
+    } finally {
+      setDownloadingId(null)
     }
   }
 
@@ -140,6 +193,13 @@ export default function ImageHistory() {
           </div>
         </div>
 
+        {/* 错误提示 */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-900/30 border border-red-500/50 rounded-lg text-red-300">
+            {error}
+          </div>
+        )}
+
         {/* 图片列表 */}
         {loading ? (
           <div className="text-center py-12">
@@ -177,10 +237,15 @@ export default function ImageHistory() {
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
                     <button
                       onClick={() => handleDownload(img.id, img.filename)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors"
-                      title={t('history.download')}
+                      disabled={downloadingId === img.id}
+                      className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={downloadingId === img.id ? (t('upload.downloading') || 'Downloading...') : (t('history.download') || 'Download')}
                     >
-                      <Download className="h-5 w-5" />
+                      {downloadingId === img.id ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      ) : (
+                        <Download className="h-5 w-5" />
+                      )}
                     </button>
                     <button
                       onClick={() => handleDelete(img.id)}
