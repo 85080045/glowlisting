@@ -83,3 +83,28 @@ export async function trackCheckoutAbandonment(planType, priceId, amount, curren
   }
 }
 
+// 通用事件埋点
+export async function trackEvent(eventType, data = {}) {
+  try {
+    const sessionId = getSessionId()
+    const token = localStorage.getItem('glowlisting_token')
+    await fetch(`${API_URL}/events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        sessionId,
+        eventType,
+        path: window.location.pathname,
+        source: 'web',
+        deviceType: navigator.userAgent,
+        ...data,
+      }),
+    })
+  } catch (error) {
+    console.warn('Failed to track event:', error)
+  }
+}
+

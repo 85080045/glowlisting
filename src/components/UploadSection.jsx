@@ -3,6 +3,7 @@ import { Upload, Loader2, Download, X, Image as ImageIcon, AlertTriangle, Maximi
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { enhanceImage, downloadHDImage } from '../services/enhanceService'
+import { trackEvent } from '../utils/analytics'
 import heic2any from 'heic2any'
 import BeforeAfterSlider from './BeforeAfterSlider'
 
@@ -203,6 +204,7 @@ export default function UploadSection({
       setEnhancedImage(result.image)
       setImageId(result.imageId) // 保存图像 ID
       setExpireAt(Date.now() + 30 * 60 * 1000) // 30分钟有效期
+      trackEvent('upload_success', { imageId: result.imageId })
       
       // 更新重新生成次数信息
       if (result.regenerateCount !== undefined) {
@@ -230,6 +232,7 @@ export default function UploadSection({
       } else {
         setError(getTranslatedError(err.message))
       }
+      trackEvent('upload_fail', { message: err.message })
       console.error('Enhance error:', err)
     } finally {
       setIsProcessing(false)

@@ -86,6 +86,35 @@ const toggleUserAdminSafe = async (id) => useDb ? await toggleUserAdminAsync(id)
 const addTokensToUserSafe = async (id, amount) => useDb ? await addTokensToUserAsync(id, amount) : addTokensToUser(id, amount)
 const getChartDataSafe = async (s, e) => useDb ? await getChartDataAsync(s, e) : getChartData(s, e)
 
+// 事件日志
+const logEvent = async ({ userId, sessionId, eventType, path = null, source = null, deviceType = null, os = null, browser = null, country = null, city = null, utm = {}, extra = null }) => {
+  if (!useDb) return
+  try {
+    await query(
+      `INSERT INTO events (user_id, session_id, event_type, path, source, device_type, os, browser, country, city, utm_source, utm_medium, utm_campaign, extra)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [
+        userId || null,
+        sessionId || null,
+        eventType,
+        path || null,
+        source || null,
+        deviceType || null,
+        os || null,
+        browser || null,
+        country || null,
+        city || null,
+        utm?.source || null,
+        utm?.medium || null,
+        utm?.campaign || null,
+        extra ? JSON.stringify(extra) : null
+      ]
+    )
+  } catch (err) {
+    console.error('logEvent error:', err.message)
+  }
+}
+
 // 审计日志辅助函数
 const logAdminAction = async (adminUserId, action, targetUserId = null, details = null, req = null) => {
   if (!useDb) return // 只在有数据库时记录
@@ -451,8 +480,74 @@ app.post('/api/auth/register', async (req, res) => {
       user: userWithoutPassword,
       tokens: userTokens,
     })
+
+    // 事件：注册成功
+    await logEvent({
+      userId: user.id,
+      sessionId: req.headers['x-session-id'] || null,
+      eventType: 'register_success',
+      path: '/auth/register',
+      source: 'app',
+    })
   } catch (error) {
     res.status(400).json({ error: error.message })
+  }
+})
+
+// 前端/服务端事件上报（可选带登录态）
+app.post('/api/events', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    let userId = null
+    if (authHeader) {
+      try {
+        const token = authHeader.split(' ')[1]
+        const jwt = await import('jsonwebtoken')
+        const decoded = jwt.default.verify(token, JWT_SECRET)
+        userId = decoded.userId
+      } catch (e) {
+        // 忽略 token 解析失败，允许匿名事件
+        userId = null
+      }
+    }
+
+    const {
+      sessionId,
+      eventType,
+      path,
+      source,
+      deviceType,
+      os,
+      browser,
+      country,
+      city,
+      utm = {},
+      extra = null,
+    } = req.body || {}
+
+    if (!eventType) {
+      return res.status(400).json({ success: false, error: 'eventType is required' })
+    }
+
+    await logEvent({
+      userId,
+      sessionId,
+      eventType,
+      path,
+      source,
+      deviceType,
+      os,
+      browser,
+      country,
+      city,
+      utm,
+      extra,
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Event log error:', error)
+    res.status(500).json({ success: false, error: 'Failed to log event' })
   }
 })
 
@@ -1257,6 +1352,128 @@ app.get('/api/admin/overview', authMiddleware, adminMiddleware, async (req, res)
     res.status(500).json({ error: error.message })
   }
 })
+
+// Admin Analytics Summary (DAU/WAU/MAU, Funnel, Sources)
+app.get('/api/admin/analytics/summary', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) return res.status(400).json({ error: 'Analytics requires database' })
+
+    const now = new Date()
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+    const dau = await query(
+      `SELECT COUNT(DISTINCT COALESCE(session_id::text, user_id::text)) AS c
+       FROM events WHERE created_at >= $1`,
+      [dayAgo]
+    )
+    const wau = await query(
+      `SELECT COUNT(DISTINCT COALESCE(session_id::text, user_id::text)) AS c
+       FROM events WHERE created_at >= $1`,
+      [weekAgo]
+    )
+    const mau = await query(
+      `SELECT COUNT(DISTINCT COALESCE(session_id::text, user_id::text)) AS c
+       FROM events WHERE created_at >= $1`,
+      [monthAgo]
+    )
+
+    // Funnel last 30d
+    const visitors = await query(
+      `SELECT COUNT(DISTINCT session_id) AS c FROM visits WHERE created_at >= $1`,
+      [monthAgo]
+    )
+    const reg = await query(
+      `SELECT COUNT(*) AS c FROM events WHERE event_type='register_success' AND created_at >= $1`,
+      [monthAgo]
+    )
+    const upload = await query(
+      `SELECT COUNT(*) AS c FROM events WHERE event_type='upload_success' AND created_at >= $1`,
+      [monthAgo]
+    )
+    const pay = await query(
+      `SELECT COUNT(*) AS c FROM events WHERE event_type='pay_success' AND created_at >= $1`,
+      [monthAgo]
+    )
+
+    // Upload success rate & fail reasons
+    const uploadStats = await query(
+      `SELECT 
+         SUM(CASE WHEN event_type='upload_success' THEN 1 ELSE 0 END) AS success,
+         SUM(CASE WHEN event_type='upload_fail' THEN 1 ELSE 0 END) AS fail
+       FROM events
+       WHERE event_type IN ('upload_success','upload_fail') AND created_at >= $1`,
+      [monthAgo]
+    )
+    const failReasons = await query(
+      `SELECT COALESCE(extra->>'message','unknown') AS reason, COUNT(*) AS cnt
+       FROM events
+       WHERE event_type='upload_fail' AND created_at >= $1
+       GROUP BY reason
+       ORDER BY cnt DESC
+       LIMIT 5`,
+      [monthAgo]
+    )
+
+    // Sources / devices / geo
+    const trafficSources = await query(
+      `SELECT COALESCE(utm_source,'(direct)') AS source, COUNT(*) AS cnt
+       FROM visits
+       WHERE created_at >= $1
+       GROUP BY source
+       ORDER BY cnt DESC
+       LIMIT 10`,
+      [monthAgo]
+    )
+    const devices = await query(
+      `SELECT COALESCE(device_type,'other') AS device, COUNT(*) AS cnt
+       FROM visits
+       WHERE created_at >= $1
+       GROUP BY device
+       ORDER BY cnt DESC`,
+      [monthAgo]
+    )
+    const countries = await query(
+      `SELECT COALESCE(country,'unknown') AS country, COUNT(*) AS cnt
+       FROM visits
+       WHERE created_at >= $1
+       GROUP BY country
+       ORDER BY cnt DESC
+       LIMIT 10`,
+      [monthAgo]
+    )
+
+    res.json({
+      success: true,
+      kpi: {
+        dau: Number(dau.rows[0]?.c || 0),
+        wau: Number(wau.rows[0]?.c || 0),
+        mau: Number(mau.rows[0]?.c || 0),
+      },
+      funnel: {
+        visitors: Number(visitors.rows[0]?.c || 0),
+        register: Number(reg.rows[0]?.c || 0),
+        upload: Number(upload.rows[0]?.c || 0),
+        pay: Number(pay.rows[0]?.c || 0),
+      },
+      quality: {
+        uploadSuccess: Number(uploadStats.rows[0]?.success || 0),
+        uploadFail: Number(uploadStats.rows[0]?.fail || 0),
+        failureReasons: failReasons.rows,
+      },
+      traffic: {
+        sources: trafficSources.rows,
+        devices: devices.rows,
+        countries: countries.rows,
+      },
+    })
+  } catch (error) {
+    console.error('Admin analytics summary error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 
 // Admin billing: subscriptions list
 app.get('/api/admin/billing/subscriptions', authMiddleware, adminMiddleware, async (req, res) => {
@@ -3215,6 +3432,26 @@ B. 室外照片 (Facade/Garden)：
           remainingRegenerates: MAX_REGENERATE_COUNT - regenerateInfo.regenerateCount, // 剩余重新生成次数
           message: '图像已通过 nanobanna API 增强处理。'
         })
+
+        // 事件：处理成功
+        await logEvent({
+          userId,
+          sessionId: req.headers['x-session-id'] || null,
+          eventType: 'upload_success',
+          path: '/api/enhance',
+          source: 'app',
+          extra: { imageId, jobId }
+        })
+
+        // 事件：处理成功
+        await logEvent({
+          userId,
+          sessionId: req.headers['x-session-id'] || null,
+          eventType: 'upload_success',
+          path: '/api/enhance',
+          source: 'app',
+          extra: { imageId, jobId }
+        })
       } catch (apiError) {
         console.error('nanobanna API error:', apiError.message)
         console.error('Error details:', apiError.response?.data || apiError)
@@ -3276,6 +3513,20 @@ B. 室外照片 (Facade/Garden)：
           message: errorMessage,
           details: apiError.response?.data || null
         })
+
+        // 事件：处理失败
+        try {
+          await logEvent({
+            userId,
+            sessionId: req.headers['x-session-id'] || null,
+            eventType: 'upload_fail',
+            path: '/api/enhance',
+            source: 'app',
+            extra: { message: errorMessage, jobId }
+          })
+        } catch (e) {
+          console.warn('logEvent upload_fail error:', e?.message)
+        }
       }
     } else {
       // 如果没有配置 API key，返回错误
@@ -3853,6 +4104,17 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
           )
         }
       }
+
+      if (userId) {
+        await logEvent({
+          userId,
+          sessionId: session.metadata?.sessionId || null,
+          eventType: 'pay_success',
+          path: '/webhook/stripe',
+          source: 'stripe',
+          extra: { planType, amount: session.amount_total, currency: session.currency }
+        })
+      }
     } else if (event.type === 'invoice.payment_succeeded') {
       const invoice = event.data.object
       const userId = invoice.metadata?.userId || invoice.customer_email // fallback
@@ -3872,6 +4134,17 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
           )
         }
       }
+
+      if (userId) {
+        await logEvent({
+          userId,
+          sessionId: invoice.metadata?.sessionId || null,
+          eventType: 'pay_success',
+          path: '/webhook/stripe',
+          source: 'stripe',
+          extra: { amount: invoice.amount_paid, currency: invoice.currency }
+        })
+      }
     } else if (event.type === 'customer.subscription.deleted' || event.type === 'invoice.payment_failed') {
       const subscription = event.data.object
       const userId = subscription.metadata?.userId || subscription.customer_email
@@ -3884,6 +4157,17 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
             [userId]
           )
         }
+      }
+
+      if (userId) {
+        await logEvent({
+          userId,
+          sessionId: subscription.metadata?.sessionId || null,
+          eventType: 'pay_failed',
+          path: '/webhook/stripe',
+          source: 'stripe',
+          extra: { status: subscription.status, reason: 'payment_failed' }
+        })
       }
     }
 
@@ -4191,6 +4475,30 @@ if (useDb) {
         } catch (migrationError) {
           console.warn('⚠️ visits 表迁移检查失败（不影响应用启动）:', migrationError.message)
         }
+
+      // 检查并运行 events 表迁移
+      try {
+        const eventsTableCheck = await query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'events'
+          )
+        `)
+        const eventsTableExists = eventsTableCheck.rows[0]?.exists
+        
+        if (!eventsTableExists) {
+          console.log('🔄 检测到需要运行 events 表迁移...')
+          const migrationPath = path.join(__dirname, 'db', 'migrations', '013_events.sql')
+          if (fs.existsSync(migrationPath)) {
+            const migrationSQL = fs.readFileSync(migrationPath, 'utf8')
+            await query(migrationSQL)
+            console.log('✅ 迁移完成: events 表已创建')
+          }
+        }
+      } catch (migrationError) {
+        console.warn('⚠️ events 表迁移检查失败（不影响应用启动）:', migrationError.message)
+      }
         
         // Migration 012: Token indexes for better query performance
         try {

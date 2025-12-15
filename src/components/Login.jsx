@@ -4,6 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { LogIn, Mail, Lock, User, Loader2, Camera } from 'lucide-react'
 import axios from 'axios'
+import { trackEvent } from '../utils/analytics'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 const RECAPTCHA_SITE_KEY = '6Lf9lyQsAAAAAMNbhrVKxqNpNsb3jVFRA-daHyNU'
@@ -131,6 +132,11 @@ export default function Login() {
       }
 
       if (result.success) {
+        if (!isLogin) {
+          trackEvent('register_success', { email: formData.email })
+        } else {
+          trackEvent('login_success', { email: formData.email })
+        }
         // 检查是否有重定向
         const redirect = searchParams.get('redirect')
         if (redirect === 'upload') {
