@@ -241,11 +241,14 @@ export default function UploadSection({
       }
     }
     run()
-  }, [isBatchProcessing, isQueuePaused, tasks, isProcessing])
+  }, [isBatchProcessing, isQueuePaused, tasks, isProcessing, privacyOptions])
 
   const retryTask = (taskId) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'queued', errorMsg: null } : t))
-    setIsBatchProcessing(true)
+    // 如果批量处理未启动，启动它
+    if (!isBatchProcessing) {
+      setIsBatchProcessing(true)
+    }
     setIsQueuePaused(false)
   }
 
