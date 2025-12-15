@@ -66,6 +66,9 @@ export default function AdminDashboard() {
   const [userDateEnd, setUserDateEnd] = useState(null)
   const [userPage, setUserPage] = useState(1)
   const [userPageSize, setUserPageSize] = useState(20)
+  const [visitsStats, setVisitsStats] = useState(null)
+  const [visitsRange, setVisitsRange] = useState('today')
+  const [visitsLoading, setVisitsLoading] = useState(false)
 
   useEffect(() => {
     console.log('AdminDashboard useEffect - user:', user)
@@ -217,6 +220,23 @@ export default function AdminDashboard() {
     setEndDate(null)
     setShowDatePicker(false)
     fetchData()
+  }
+
+  const fetchVisitsStats = async () => {
+    try {
+      setVisitsLoading(true)
+      const token = localStorage.getItem('glowlisting_token')
+      const response = await axios.get(`${API_URL}/admin/analytics/visits`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { range: visitsRange }
+      })
+      setVisitsStats(response.data)
+    } catch (error) {
+      console.error('Fetch visits stats error:', error)
+      alert(error.response?.data?.error || 'Failed to fetch visits statistics')
+    } finally {
+      setVisitsLoading(false)
+    }
   }
 
   const handleDeleteUser = async (userId, userName) => {
@@ -1494,6 +1514,158 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* 访问统计标签页 */}
+        {activeTab === 'visits' && (
+          <div className="space-y-6">
+            {/* 时间范围选择 */}
+            <div className="glass-dark rounded-xl p-4 flex flex-wrap gap-3 items-center">
+              <span className="text-gray-300">{t('adminDashboard.timeRange')}:</span>
+              {['today', '7d', '30d', 'all'].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => {
+                    setVisitsRange(range)
+                    fetchVisitsStats()
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    visitsRange === range
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {range === 'today' ? t('adminDashboard.today') || 'Today' :
+                   range === '7d' ? t('adminDashboard.lastWeek') || '7 Days' :
+                   range === '30d' ? t('adminDashboard.monthToDate') || '30 Days' :
+                   t('adminDashboard.allTime') || 'All Time'}
+                </button>
+              ))}
+            </div>
+
+            {visitsLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <p className="text-gray-400">{t('adminDashboard.loading')}</p>
+              </div>
+            ) : visitsStats ? (
+              <>
+                {/* 关键指标 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="glass-dark rounded-xl p-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-blue-500/20 w-12 h-12 rounded-lg flex items-center justify-center border border-blue-400/30">
+                        <Eye className="h-6 w-6 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm">{t('adminDashboard.totalVisits') || 'Total Visits'}</p>
+                        <p className="text-3xl font-bold text-white">{visitsStats.totalVisits || 0}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="glass-dark rounded-xl p-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-red-500/20 w-12 h-12 rounded-lg flex items-center justify-center border border-red-400/30">
+                        <X className="h-6 w-6 text-red-400" />
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm">{t('adminDashboard.abandonedCheckouts') || 'Abandoned Checkouts'}</p>
+                        <p className="text-3xl font-bold text-white">{visitsStats.totalAbandonments || 0}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="glass-dark rounded-xl p-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-green-500/20 w-12 h-12 rounded-lg flex items-center justify-center border border-green-400/30">
+                        <TrendingUp className="h-6 w-6 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm">{t('adminDashboard.conversionRate') || 'Conversion Rate'}</p>
+                        <p className="text-3xl font-bold text-white">
+                          {visitsStats.totalVisits > 0 
+                            ? ((1 - (visitsStats.totalAbandonments / visitsStats.totalVisits)) * 100).toFixed(1)
+                            : 0}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 来源统计 */}
+                <div className="glass-dark rounded-xl p-6">
+                  <h3 className="text-xl font-bold text-white mb-4">{t('adminDashboard.trafficSources') || 'Traffic Sources'}</h3>
+                  <div className="space-y-3">
+                    {visitsStats.bySource && visitsStats.bySource.length > 0 ? (
+                      visitsStats.bySource.map((source, idx) => (
+                        <div key={idx} className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                            <span className="text-gray-300 capitalize">{source.source || 'unknown'}</span>
+                          </div>
+                          <span className="text-white font-semibold">{source.visits || 0}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-400 text-sm">{t('adminDashboard.noData')}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 页面统计 */}
+                <div className="glass-dark rounded-xl p-6">
+                  <h3 className="text-xl font-bold text-white mb-4">{t('adminDashboard.topPages') || 'Top Pages'}</h3>
+                  <div className="space-y-3">
+                    {visitsStats.byPage && visitsStats.byPage.length > 0 ? (
+                      visitsStats.byPage.slice(0, 10).map((page, idx) => (
+                        <div key={idx} className="flex items-center justify-between">
+                          <span className="text-gray-300 text-sm truncate">{page.page_path || '-'}</span>
+                          <span className="text-white font-semibold">{page.visits || 0}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-400 text-sm">{t('adminDashboard.noData')}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 设备类型统计 */}
+                <div className="glass-dark rounded-xl p-6">
+                  <h3 className="text-xl font-bold text-white mb-4">{t('adminDashboard.deviceTypes') || 'Device Types'}</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    {visitsStats.byDevice && visitsStats.byDevice.length > 0 ? (
+                      visitsStats.byDevice.map((device, idx) => (
+                        <div key={idx} className="text-center">
+                          <p className="text-gray-400 text-sm capitalize">{device.device_type || 'unknown'}</p>
+                          <p className="text-2xl font-bold text-white mt-2">{device.visits || 0}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-400 text-sm col-span-3">{t('adminDashboard.noData')}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 结账放弃统计 */}
+                {visitsStats.abandonmentsByPlan && visitsStats.abandonmentsByPlan.length > 0 && (
+                  <div className="glass-dark rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-white mb-4">{t('adminDashboard.abandonmentsByPlan') || 'Abandonments by Plan'}</h3>
+                    <div className="space-y-3">
+                      {visitsStats.abandonmentsByPlan.map((plan, idx) => (
+                        <div key={idx} className="flex items-center justify-between">
+                          <span className="text-gray-300 capitalize">{plan.plan_type || 'unknown'}</span>
+                          <span className="text-white font-semibold">{plan.total || 0}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-400">{t('adminDashboard.noData')}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

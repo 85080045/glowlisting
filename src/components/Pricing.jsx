@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check, Zap, LogIn } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import ScrollReveal, { ScrollRevealItem } from './ScrollReveal'
 import { paymentsService } from '../services/paymentsService'
+import { trackCheckoutAbandonment } from '../utils/analytics'
 
 export default function Pricing() {
   const { t } = useLanguage()
@@ -102,6 +103,9 @@ export default function Pricing() {
           
           console.error('Displaying error to user:', errorMsg)
           alert(errorMsg)
+          
+          // 记录结账放弃
+          trackCheckoutAbandonment('pack', null, null, 'usd', user?.id || null)
         } finally {
           setLoadingPlan(null)
         }
@@ -178,6 +182,9 @@ export default function Pricing() {
           
           console.error('Displaying error to user:', errorMsg)
           alert(errorMsg)
+          
+          // 记录结账放弃
+          trackCheckoutAbandonment('pack', null, null, 'usd', user?.id || null)
         } finally {
           setLoadingPlan(null)
         }

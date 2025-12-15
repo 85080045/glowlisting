@@ -1419,6 +1419,282 @@ app.get('/api/admin/billing/summary', authMiddleware, adminMiddleware, async (re
   }
 })
 
+// 记录访问（公开端点，不需要认证）
+app.post('/api/analytics/visit', async (req, res) => {
+  try {
+    if (!useDb) {
+      return res.json({ success: true, message: 'Analytics disabled (no database)' })
+    }
+    
+    const {
+      sessionId,
+      userId,
+      pagePath,
+      referrer,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      userAgent,
+    } = req.body
+    
+    if (!sessionId || !pagePath) {
+      return res.status(400).json({ error: 'sessionId and pagePath are required' })
+    }
+    
+    // 获取IP和地理位置
+    const ip = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress
+    let country = null
+    let countryCode = null
+    let city = null
+    
+    try {
+      if (ip && ip !== '::1' && !ip.startsWith('127.')) {
+        const geo = geoip.lookup(ip)
+        if (geo) {
+          country = geo.country
+          countryCode = geo.country
+          city = geo.city
+        }
+      }
+    } catch (geoError) {
+      console.warn('GeoIP lookup error:', geoError.message)
+    }
+    
+    // 解析设备类型和浏览器
+    let deviceType = 'desktop'
+    let browser = 'unknown'
+    let os = 'unknown'
+    
+    if (userAgent) {
+      const ua = userAgent.toLowerCase()
+      if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+        deviceType = 'mobile'
+      } else if (ua.includes('tablet') || ua.includes('ipad')) {
+        deviceType = 'tablet'
+      }
+      
+      if (ua.includes('chrome')) browser = 'chrome'
+      else if (ua.includes('firefox')) browser = 'firefox'
+      else if (ua.includes('safari')) browser = 'safari'
+      else if (ua.includes('edge')) browser = 'edge'
+      
+      if (ua.includes('windows')) os = 'windows'
+      else if (ua.includes('mac')) os = 'macos'
+      else if (ua.includes('linux')) os = 'linux'
+      else if (ua.includes('android')) os = 'android'
+      else if (ua.includes('ios') || ua.includes('iphone')) os = 'ios'
+    }
+    
+    await query(
+      `INSERT INTO visits (
+        session_id, user_id, page_path, referrer, utm_source, utm_medium, utm_campaign,
+        user_agent, ip_address, country, country_code, city, device_type, browser, os
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      [
+        sessionId,
+        userId || null,
+        pagePath,
+        referrer || null,
+        utmSource || null,
+        utmMedium || null,
+        utmCampaign || null,
+        userAgent || null,
+        ip || null,
+        country,
+        countryCode,
+        city,
+        deviceType,
+        browser,
+        os,
+      ]
+    )
+    
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Record visit error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 记录结账放弃（公开端点）
+app.post('/api/analytics/checkout-abandonment', async (req, res) => {
+  try {
+    if (!useDb) {
+      return res.json({ success: true, message: 'Analytics disabled (no database)' })
+    }
+    
+    const {
+      sessionId,
+      userId,
+      planType,
+      priceId,
+      amount,
+      currency,
+      pagePath,
+      referrer,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+    } = req.body
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required' })
+    }
+    
+    await query(
+      `INSERT INTO checkout_abandonments (
+        session_id, user_id, plan_type, price_id, amount, currency,
+        page_path, referrer, utm_source, utm_medium, utm_campaign
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [
+        sessionId,
+        userId || null,
+        planType || null,
+        priceId || null,
+        amount || null,
+        currency || 'usd',
+        pagePath || null,
+        referrer || null,
+        utmSource || null,
+        utmMedium || null,
+        utmCampaign || null,
+      ]
+    )
+    
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Record checkout abandonment error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 获取访问统计（管理员）
+app.get('/api/admin/analytics/visits', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!useDb) {
+      return res.status(400).json({ error: 'Analytics requires database' })
+    }
+    
+    const { range = 'today' } = req.query
+    const now = new Date()
+    let startDate
+    
+    if (range === 'today') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    } else if (range === '7d') {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    } else if (range === '30d') {
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    } else {
+      startDate = new Date(0)
+    }
+    
+    // 总访问数
+    const totalVisits = await query(
+      `SELECT COUNT(DISTINCT session_id) AS total
+       FROM visits
+       WHERE created_at >= $1`,
+      [startDate]
+    )
+    
+    // 按来源统计
+    const bySource = await query(
+      `SELECT 
+        COALESCE(utm_source, CASE 
+          WHEN referrer LIKE '%google%' THEN 'google'
+          WHEN referrer LIKE '%facebook%' OR referrer LIKE '%meta%' THEN 'meta'
+          WHEN referrer LIKE '%twitter%' THEN 'twitter'
+          WHEN referrer LIKE '%instagram%' THEN 'instagram'
+          WHEN referrer IS NULL OR referrer = '' THEN 'direct'
+          ELSE 'other'
+        END) AS source,
+        COUNT(DISTINCT session_id) AS visits
+       FROM visits
+       WHERE created_at >= $1
+       GROUP BY source
+       ORDER BY visits DESC`,
+      [startDate]
+    )
+    
+    // 按页面统计
+    const byPage = await query(
+      `SELECT page_path, COUNT(DISTINCT session_id) AS visits
+       FROM visits
+       WHERE created_at >= $1
+       GROUP BY page_path
+       ORDER BY visits DESC
+       LIMIT 20`,
+      [startDate]
+    )
+    
+    // 按设备类型统计
+    const byDevice = await query(
+      `SELECT device_type, COUNT(DISTINCT session_id) AS visits
+       FROM visits
+       WHERE created_at >= $1
+       GROUP BY device_type
+       ORDER BY visits DESC`,
+      [startDate]
+    )
+    
+    // 按国家统计
+    const byCountry = await query(
+      `SELECT country, country_code, COUNT(DISTINCT session_id) AS visits
+       FROM visits
+       WHERE created_at >= $1 AND country IS NOT NULL
+       GROUP BY country, country_code
+       ORDER BY visits DESC
+       LIMIT 20`,
+      [startDate]
+    )
+    
+    // 每日访问趋势
+    const dailyTrend = await query(
+      `SELECT DATE(created_at) AS date, COUNT(DISTINCT session_id) AS visits
+       FROM visits
+       WHERE created_at >= $1
+       GROUP BY DATE(created_at)
+       ORDER BY date DESC
+       LIMIT 30`,
+      [startDate]
+    )
+    
+    // 结账放弃数
+    const abandonments = await query(
+      `SELECT COUNT(*) AS total
+       FROM checkout_abandonments
+       WHERE created_at >= $1`,
+      [startDate]
+    )
+    
+    // 按计划类型的放弃数
+    const abandonmentsByPlan = await query(
+      `SELECT plan_type, COUNT(*) AS total
+       FROM checkout_abandonments
+       WHERE created_at >= $1 AND plan_type IS NOT NULL
+       GROUP BY plan_type
+       ORDER BY total DESC`,
+      [startDate]
+    )
+    
+    res.json({
+      success: true,
+      range,
+      totalVisits: Number(totalVisits.rows[0]?.total || 0),
+      totalAbandonments: Number(abandonments.rows[0]?.total || 0),
+      bySource: bySource.rows,
+      byPage: byPage.rows,
+      byDevice: byDevice.rows,
+      byCountry: byCountry.rows,
+      dailyTrend: dailyTrend.rows.reverse(),
+      abandonmentsByPlan: abandonmentsByPlan.rows,
+    })
+  } catch (error) {
+    console.error('Get visits analytics error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Admin Support: feedback list
 app.get('/api/admin/support/feedback', authMiddleware, adminMiddleware, async (req, res) => {
   try {
@@ -3648,6 +3924,30 @@ if (useDb) {
         }
       } catch (migrationError) {
         console.warn('⚠️ messages 表迁移检查失败（不影响应用启动）:', migrationError.message)
+      }
+      
+      // 检查并运行 visits 表迁移
+      try {
+        const visitsTableCheck = await query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'visits'
+          )
+        `)
+        const visitsTableExists = visitsTableCheck.rows[0]?.exists
+        
+        if (!visitsTableExists) {
+          console.log('🔄 检测到需要运行 visits 表迁移...')
+          const migrationPath = path.join(__dirname, 'db', 'migrations', '011_visits_analytics.sql')
+          if (fs.existsSync(migrationPath)) {
+            const migrationSQL = fs.readFileSync(migrationPath, 'utf8')
+            await query(migrationSQL)
+            console.log('✅ 迁移完成: visits 和 checkout_abandonments 表已创建')
+          }
+        }
+      } catch (migrationError) {
+        console.warn('⚠️ visits 表迁移检查失败（不影响应用启动）:', migrationError.message)
       }
       
       // 启动时清理一次旧图片和旧消息

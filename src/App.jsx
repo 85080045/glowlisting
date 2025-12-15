@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
+import { trackPageView } from './utils/analytics'
+import { useAuth } from './contexts/AuthContext'
 
 // 滚动到顶部组件
 function ScrollToTop() {
@@ -100,12 +102,20 @@ function Home() {
   )
 }
 
-function App() {
+function AppContent() {
+  const location = useLocation()
+  const { user } = useAuth()
+  
+  // 追踪页面访问
+  useEffect(() => {
+    const pagePath = location.pathname + location.search
+    trackPageView(pagePath, user?.id || null)
+  }, [location.pathname, location.search, user?.id])
+  
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <ScrollToTop />
-        <div className="min-h-screen flex flex-col">
+    <>
+      <ScrollToTop />
+      <div className="min-h-screen flex flex-col">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
@@ -139,6 +149,15 @@ function App() {
           <SupportChat />
           <AdminChat />
         </div>
+      </>
+  )
+}
+
+function App() {
+  return (
+    <LanguageProvider>
+      <AuthProvider>
+        <AppContent />
       </AuthProvider>
     </LanguageProvider>
   )
