@@ -338,6 +338,39 @@ export default function UploadSection({
           </div>
         )}
 
+        {/* 隐私保护选项 */}
+        {uploadedImage && (
+          <div className="card-glass mb-6">
+            <h3 className="text-lg font-semibold text-white mb-4">{t('upload.privacyOptions')}</h3>
+            <div className="space-y-3">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyOptions.blurFaces}
+                  onChange={(e) => setPrivacyOptions({ ...privacyOptions, blurFaces: e.target.checked })}
+                  className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                />
+                <div className="flex-1">
+                  <span className="text-white font-medium">{t('upload.blurFaces')}</span>
+                  <p className="text-sm text-gray-400">{t('upload.blurFacesDesc')}</p>
+                </div>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyOptions.blurLicensePlates}
+                  onChange={(e) => setPrivacyOptions({ ...privacyOptions, blurLicensePlates: e.target.checked })}
+                  className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                />
+                <div className="flex-1">
+                  <span className="text-white font-medium">{t('upload.blurLicensePlates')}</span>
+                  <p className="text-sm text-gray-400">{t('upload.blurLicensePlatesDesc')}</p>
+                </div>
+              </label>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
           {/* 上传区域 */}
           <div className="card-glass flex flex-col">
