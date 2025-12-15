@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import ScrollReveal, { ScrollRevealItem } from './ScrollReveal'
 import { paymentsService } from '../services/paymentsService'
-import { trackCheckoutAbandonment } from '../utils/analytics'
+import { trackCheckoutAbandonment, trackEvent } from '../utils/analytics'
 
 export default function Pricing() {
   const { t } = useLanguage()
@@ -52,6 +52,7 @@ export default function Pricing() {
         }
         try {
           setLoadingPlan('pro')
+          trackEvent('pay_start', { planType: 'pro' })
           console.log('Creating checkout session for pro plan...')
           const session = await paymentsService.createCheckoutSession('pro')
           console.log('Checkout session created:', session)
@@ -105,7 +106,8 @@ export default function Pricing() {
           alert(errorMsg)
           
           // 记录结账放弃
-          trackCheckoutAbandonment('pack', null, null, 'usd', user?.id || null)
+          trackCheckoutAbandonment('pro', null, null, 'usd', user?.id || null)
+          trackEvent('pay_failed', { planType: 'pro', message: err.message })
         } finally {
           setLoadingPlan(null)
         }
@@ -131,6 +133,7 @@ export default function Pricing() {
         }
         try {
           setLoadingPlan('pack')
+          trackEvent('pay_start', { planType: 'pack' })
           console.log('Creating checkout session for pack plan...')
           const session = await paymentsService.createCheckoutSession('pack')
           console.log('Checkout session created:', session)
@@ -185,6 +188,7 @@ export default function Pricing() {
           
           // 记录结账放弃
           trackCheckoutAbandonment('pack', null, null, 'usd', user?.id || null)
+          trackEvent('pay_failed', { planType: 'pack', message: err.message })
         } finally {
           setLoadingPlan(null)
         }

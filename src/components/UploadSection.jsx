@@ -198,6 +198,7 @@ export default function UploadSection({
     // 单张图片处理
     setIsProcessing(true)
     setError(null)
+    trackEvent('upload_start', { isRegenerate, options: privacyOptions })
 
     try {
       const result = await enhanceImage(uploadedImage, isRegenerate, privacyOptions)
