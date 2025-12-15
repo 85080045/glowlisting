@@ -154,11 +154,10 @@ export default function Header() {
               )}
             </button>
           </div>
-        </div>
 
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden py-3 space-y-2 border-t border-white/10 px-4 sm:px-6">
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <div className="md:hidden py-3 space-y-2 border-t border-white/10 px-4 sm:px-6">
             <Link 
               to="/blog" 
               className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2" 
@@ -219,8 +218,9 @@ export default function Header() {
                 {t('auth.login')}
               </button>
             )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </nav>
     </header>
   )
