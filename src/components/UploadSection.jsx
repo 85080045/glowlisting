@@ -350,38 +350,61 @@ export default function UploadSection({
           </div>
         )}
 
-        {/* 隐私保护选项 */}
-        {uploadedImage && (
-          <div className="card-glass mb-6">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('upload.privacyOptions')}</h3>
-            <div className="space-y-3">
-              <label className="flex items-center space-x-3 cursor-pointer">
+        {/* 隐私保护选项 - 在上传前显示 */}
+        <div className="card-glass mb-6">
+          <h3 className="text-lg font-semibold text-white mb-4">{t('upload.privacyOptions')}</h3>
+          <div className="space-y-4">
+            {/* 人脸模糊开关 */}
+            <label className="flex items-center justify-between cursor-pointer group">
+              <div className="flex-1 pr-4">
+                <span className="text-white font-medium block mb-1">{t('upload.blurFaces')}</span>
+                <p className="text-sm text-gray-400">{t('upload.blurFacesDesc')}</p>
+              </div>
+              <div className="relative">
                 <input
                   type="checkbox"
                   checked={privacyOptions.blurFaces}
                   onChange={(e) => setPrivacyOptions({ ...privacyOptions, blurFaces: e.target.checked })}
-                  className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                  className="sr-only"
                 />
-                <div className="flex-1">
-                  <span className="text-white font-medium">{t('upload.blurFaces')}</span>
-                  <p className="text-sm text-gray-400">{t('upload.blurFacesDesc')}</p>
+                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out ${
+                  privacyOptions.blurFaces 
+                    ? 'bg-blue-600 shadow-lg shadow-blue-500/50' 
+                    : 'bg-gray-700'
+                }`}>
+                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out mt-1 ${
+                    privacyOptions.blurFaces ? 'translate-x-6' : 'translate-x-1'
+                  }`}></div>
                 </div>
-              </label>
-              <label className="flex items-center space-x-3 cursor-pointer">
+              </div>
+            </label>
+            
+            {/* 车牌模糊开关 */}
+            <label className="flex items-center justify-between cursor-pointer group">
+              <div className="flex-1 pr-4">
+                <span className="text-white font-medium block mb-1">{t('upload.blurLicensePlates')}</span>
+                <p className="text-sm text-gray-400">{t('upload.blurLicensePlatesDesc')}</p>
+              </div>
+              <div className="relative">
                 <input
                   type="checkbox"
                   checked={privacyOptions.blurLicensePlates}
                   onChange={(e) => setPrivacyOptions({ ...privacyOptions, blurLicensePlates: e.target.checked })}
-                  className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                  className="sr-only"
                 />
-                <div className="flex-1">
-                  <span className="text-white font-medium">{t('upload.blurLicensePlates')}</span>
-                  <p className="text-sm text-gray-400">{t('upload.blurLicensePlatesDesc')}</p>
+                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out ${
+                  privacyOptions.blurLicensePlates 
+                    ? 'bg-blue-600 shadow-lg shadow-blue-500/50' 
+                    : 'bg-gray-700'
+                }`}>
+                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out mt-1 ${
+                    privacyOptions.blurLicensePlates ? 'translate-x-6' : 'translate-x-1'
+                  }`}></div>
                 </div>
-              </label>
-            </div>
+              </div>
+            </label>
           </div>
-        )}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
           {/* 上传区域 */}
