@@ -18,7 +18,7 @@ export default function Header() {
   const scrollToSection = (sectionId) => {
     const element = document.getElementById(sectionId)
     if (element) {
-      const headerHeight = 64 // header高度是h-16，即64px
+      const headerHeight = 48 // header高度是h-12，即48px
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
       const offsetPosition = elementPosition - headerHeight
 
@@ -47,29 +47,31 @@ export default function Header() {
   }, [userMenuOpen])
 
   return (
-    <header className="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-50 border-b border-gray-200/50">
+    <header className="glass-dark backdrop-blur-md bg-black/20 sticky top-0 z-50 border-b border-white/10">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-12">
           {/* Logo */}
           <Link 
             to="/" 
             className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
           >
-            <Camera className="h-7 w-7 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">GlowListing</span>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+              <Camera className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-lg font-semibold text-white">GlowListing</span>
           </Link>
           
-          {/* Desktop Navigation - 参考 Motorfy 风格 */}
-          <div className="hidden md:flex items-center space-x-8">
+          {/* Desktop Navigation - 参考 Motorfy 风格：简洁短header */}
+          <div className="hidden md:flex items-center space-x-6">
             <Link 
               to="/blog" 
-              className="text-gray-700 hover:text-gray-900 transition-colors font-medium text-sm"
+              className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
             >
               {t('nav.blog')}
             </Link>
             <Link 
               to="/help" 
-              className="text-gray-700 hover:text-gray-900 transition-colors font-medium text-sm"
+              className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
             >
               {t('nav.support')}
             </Link>
@@ -80,17 +82,20 @@ export default function Header() {
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
                   >
-                    <User className="h-5 w-5 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">{user.name}</span>
+                    {t('auth.login')}
                   </button>
                   
                   {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="absolute right-0 mt-2 w-48 glass-dark rounded-lg shadow-xl border border-white/10 py-2 z-50">
+                      <div className="px-4 py-2 border-b border-white/10">
+                        <p className="text-sm font-medium text-white">{user.name}</p>
+                        <p className="text-xs text-gray-400">{user.email}</p>
+                      </div>
                       <Link
                         to="/dashboard"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
                         onClick={() => setUserMenuOpen(false)}
                       >
                         {t('nav.dashboard')}
@@ -98,7 +103,7 @@ export default function Header() {
                       {isAdmin && (
                         <Link
                           to="/admin"
-                          className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition-colors"
+                          className="block px-4 py-2 text-sm text-red-400 hover:bg-white/10 hover:text-red-300 transition-colors"
                           onClick={() => setUserMenuOpen(false)}
                         >
                           {t('nav.admin')}
@@ -110,7 +115,7 @@ export default function Header() {
                           setUserMenuOpen(false)
                           navigate('/')
                         }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors flex items-center space-x-2"
                       >
                         <LogOut className="h-4 w-4" />
                         <span>{t('nav.logout')}</span>
@@ -122,7 +127,7 @@ export default function Header() {
             ) : (
               <button
                 onClick={() => navigate('/login')}
-                className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
               >
                 {t('auth.login')}
               </button>
@@ -138,13 +143,13 @@ export default function Header() {
           <div className="md:hidden flex items-center space-x-3">
             <LanguageSelector />
             <button
-              className="p-2 text-gray-700"
+              className="p-2 text-gray-300 hover:text-white"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5" />
               ) : (
-                <Menu className="h-6 w-6" />
+                <Menu className="h-5 w-5" />
               )}
             </button>
           </div>
@@ -152,17 +157,17 @@ export default function Header() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 space-y-3 border-t border-gray-200">
+          <div className="md:hidden py-3 space-y-2 border-t border-white/10">
             <Link 
               to="/blog" 
-              className="block text-gray-700 hover:text-gray-900 transition-colors font-medium py-2" 
+              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2" 
               onClick={() => setMobileMenuOpen(false)}
             >
               {t('nav.blog')}
             </Link>
             <Link 
               to="/help" 
-              className="block text-gray-700 hover:text-gray-900 transition-colors font-medium py-2" 
+              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2" 
               onClick={() => setMobileMenuOpen(false)}
             >
               {t('nav.support')}
@@ -170,9 +175,13 @@ export default function Header() {
             
             {user ? (
               <>
+                <div className="px-2 py-2 border-t border-white/10">
+                  <p className="text-sm font-medium text-white">{user.name}</p>
+                  <p className="text-xs text-gray-400">{user.email}</p>
+                </div>
                 <Link 
                   to="/dashboard" 
-                  className="block text-gray-700 hover:text-gray-900 transition-colors font-medium py-2"
+                  className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t('nav.dashboard')}
@@ -180,7 +189,7 @@ export default function Header() {
                 {isAdmin && (
                   <Link 
                     to="/admin" 
-                    className="block text-red-600 hover:text-red-700 transition-colors font-medium py-2"
+                    className="block text-red-400 hover:text-red-300 transition-colors text-sm font-medium py-2"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {t('nav.admin')}
@@ -192,9 +201,9 @@ export default function Header() {
                     navigate('/')
                     setMobileMenuOpen(false)
                   }}
-                  className="w-full text-left text-gray-700 hover:text-gray-900 transition-colors font-medium py-2 flex items-center space-x-2"
+                  className="w-full text-left text-gray-300 hover:text-white transition-colors text-sm font-medium py-2 flex items-center space-x-2"
                 >
-                  <LogOut className="h-5 w-5" />
+                  <LogOut className="h-4 w-4" />
                   <span>{t('nav.logout')}</span>
                 </button>
               </>
@@ -204,7 +213,7 @@ export default function Header() {
                   navigate('/login')
                   setMobileMenuOpen(false)
                 }}
-                className="w-full px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                className="w-full text-left text-gray-300 hover:text-white transition-colors text-sm font-medium py-2"
               >
                 {t('auth.login')}
               </button>
