@@ -2782,6 +2782,23 @@ app.post('/api/enhance', upload.single('image'), async (req, res) => {
     // 使用 nanobanna (Gemini 2.5 Flash Image) API 进行图像增强
     // 参考文档: https://ai.google.dev/gemini-api/docs/image-generation
     
+    // 获取隐私保护选项
+    const blurFaces = req.body.blurFaces === 'true' || req.body.blurFaces === true
+    const blurLicensePlates = req.body.blurLicensePlates === 'true' || req.body.blurLicensePlates === true
+    
+    // 构建隐私保护提示
+    let privacyPrompt = ''
+    if (blurFaces || blurLicensePlates) {
+      privacyPrompt = '\n\n9. 隐私保护 (Privacy Protection)\n\n'
+      if (blurFaces) {
+        privacyPrompt += '人脸模糊处理：自动检测图片中的所有可见人脸，应用自然、柔和的模糊效果。模糊程度应足够保护隐私，但不应过于明显或破坏整体画面美感。模糊区域应与周围环境自然融合，避免生硬的边缘或明显的处理痕迹。\n\n'
+      }
+      if (blurLicensePlates) {
+        privacyPrompt += '车牌模糊处理：自动检测图片中的所有可见车牌（包括汽车、摩托车等交通工具的车牌），应用适当的模糊效果。确保车牌号码完全不可识别，同时保持车辆外观的自然。模糊应均匀且不突兀。\n\n'
+      }
+      privacyPrompt += '重要：隐私保护处理应在所有其他增强步骤之后进行，确保模糊效果应用于最终增强的图像上。'
+    }
+    
     // 准备 prompt - Commercial Real Estate Photo Enhancement Prompt (Refined Tonal Balance)
     const prompt = `1. 曝光、色彩与 HDR (Refined Tonal Balance)
 
@@ -2853,7 +2870,7 @@ B. 室外照片 (Facade/Garden)：
 
 分辨率： 确保最长边至少为 4000 像素（如果源文件质量允许），以便承受高分辨率展示和多次压缩。
 
-质量： 最终 JPEG 质量必须在 90% 以上，确保图像上传到任何平台后仍保持清晰、无损、无压缩带。`
+质量： 最终 JPEG 质量必须在 90% 以上，确保图像上传到任何平台后仍保持清晰、无损、无压缩带。${privacyPrompt}`
 
     if (NANOBANNA_API_KEY) {
       try {

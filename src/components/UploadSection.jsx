@@ -29,6 +29,11 @@ export default function UploadSection({
   const [activeTaskId, setActiveTaskId] = useState(null)
   const [isBatchProcessing, setIsBatchProcessing] = useState(false)
   const [isQueuePaused, setIsQueuePaused] = useState(false)
+  // 隐私保护选项
+  const [privacyOptions, setPrivacyOptions] = useState({
+    blurFaces: false,      // 模糊人脸
+    blurLicensePlates: false, // 模糊车牌
+  })
 
   // 错误消息映射函数：将英文错误消息转换为翻译键
   const getTranslatedError = (errorMessage) => {
@@ -154,7 +159,7 @@ export default function UploadSection({
     setError(null)
 
     try {
-      const result = await enhanceImage(uploadedImage, isRegenerate)
+      const result = await enhanceImage(uploadedImage, isRegenerate, privacyOptions)
       setEnhancedImage(result.image)
       setImageId(result.imageId) // 保存图像 ID
       
@@ -209,7 +214,7 @@ export default function UploadSection({
       setEnhancedImage(null)
       setImageId(null)
       try {
-        const result = await enhanceImage(next.dataUrl, false)
+        const result = await enhanceImage(next.dataUrl, false, privacyOptions)
         setEnhancedImage(result.image)
         setImageId(result.imageId)
         if (result.tokensRemaining !== null && result.tokensRemaining !== undefined) {

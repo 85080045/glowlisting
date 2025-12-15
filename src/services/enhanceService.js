@@ -7,9 +7,10 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
  * 增强图片
  * @param {string} imageDataUrl - Base64 编码的图片数据
  * @param {boolean} isRegenerate - 是否是重新生成
+ * @param {Object} privacyOptions - 隐私保护选项 { blurFaces: boolean, blurLicensePlates: boolean }
  * @returns {Promise<{image: string, tokensRemaining: number, regenerateCount: number, remainingRegenerates: number}>} - 增强后的图片数据 URL 和剩余token
  */
-export async function enhanceImage(imageDataUrl, isRegenerate = false) {
+export async function enhanceImage(imageDataUrl, isRegenerate = false, privacyOptions = {}) {
   try {
     // 获取token
     const token = localStorage.getItem('glowlisting_token')
@@ -23,6 +24,12 @@ export async function enhanceImage(imageDataUrl, isRegenerate = false) {
     formData.append('image', blob, 'image.jpg')
     if (isRegenerate) {
       formData.append('isRegenerate', 'true')
+    }
+    if (privacyOptions.blurFaces) {
+      formData.append('blurFaces', 'true')
+    }
+    if (privacyOptions.blurLicensePlates) {
+      formData.append('blurLicensePlates', 'true')
     }
 
     // 发送请求到后端 API
