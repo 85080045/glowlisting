@@ -138,7 +138,8 @@ export default function UploadSection({
       setUploadedImage(newTasks[0].dataUrl)
       setEnhancedImage(null)
       setImageId(null)
-      setIsBatchProcessing(true)
+      // 不自动开始批处理，等待用户手动点击"开始增强"按钮
+      // setIsBatchProcessing(true)
     }
   }
 
@@ -155,6 +156,14 @@ export default function UploadSection({
       return
     }
 
+    // 如果有批量任务，启动批量处理
+    if (tasks.length > 0 && !isRegenerate) {
+      setIsBatchProcessing(true)
+      setIsQueuePaused(false)
+      return
+    }
+
+    // 单张图片处理
     setIsProcessing(true)
     setError(null)
 
@@ -623,14 +632,33 @@ export default function UploadSection({
       {/* 队列列表 */}
       {tasks.length > 0 && (
         <div className="card-glass mt-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
             <h3 className="text-lg font-semibold text-white">{t('upload.queue') || 'Batch queue'}</h3>
-            <div className="flex items-center gap-2 text-sm text-gray-300">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-300">
               <span>{t('upload.queueTotal') || 'Total'}: {tasks.length}</span>
               <span>• {t('upload.queueProcessing') || 'Processing'}: {tasks.filter(t => t.status === 'processing').length}</span>
               <span>• {t('upload.queueDone') || 'Done'}: {tasks.filter(t => t.status === 'done').length}</span>
               <span>• {t('upload.queueError') || 'Failed'}: {tasks.filter(t => t.status === 'error').length}</span>
             </div>
+            {/* 如果队列中有待处理任务且未在处理中，显示开始按钮 */}
+            {tasks.some(t => t.status === 'queued') && !isBatchProcessing && !isProcessing && (
+              <button
+                onClick={() => {
+                  if (!user) {
+                    setError(t('upload.requiresLogin'))
+                    setTimeout(() => {
+                      window.location.href = '/login?redirect=upload'
+                    }, 2000)
+                    return
+                  }
+                  setIsBatchProcessing(true)
+                  setIsQueuePaused(false)
+                }}
+                className="btn-primary px-4 py-2 text-sm"
+              >
+                {t('upload.startBatch') || 'Start Processing'}
+              </button>
+            )}
           </div>
           <div className="space-y-3">
             {tasks.map(task => {

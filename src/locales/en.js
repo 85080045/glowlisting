@@ -399,6 +399,7 @@ export const en = {
     queueDone: 'Done',
     queueError: 'Failed',
     statusQueued: 'Queued',
+    startBatch: 'Start Processing',
     statusProcessing: 'Processing',
     statusDone: 'Completed',
     statusError: 'Failed',
