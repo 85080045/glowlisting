@@ -30,8 +30,8 @@ export default function Hero() {
   
   return (
     <section className="relative py-16 md:py-20 px-4 overflow-hidden min-h-screen flex items-center">
-      {/* 全屏渐变背景动画 - 参考科技公司设计 */}
-      <div className="absolute inset-0 w-full h-full z-0">
+      {/* 全屏渐变背景动画 - 参考科技公司设计，从页面顶部开始 */}
+      <div className="absolute top-0 left-0 right-0 bottom-0 w-full h-full z-0" style={{ top: '-64px', height: 'calc(100% + 64px)' }}>
         {/* 主渐变层 - 蓝色到紫色到粉色 */}
         <div className="absolute inset-0 hero-gradient-flow"></div>
         
