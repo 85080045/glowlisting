@@ -4174,9 +4174,32 @@ if (useDb) {
             console.log('✅ 迁移完成: visits 和 checkout_abandonments 表已创建')
           }
         }
-      } catch (migrationError) {
-        console.warn('⚠️ visits 表迁移检查失败（不影响应用启动）:', migrationError.message)
-      }
+        } catch (migrationError) {
+          console.warn('⚠️ visits 表迁移检查失败（不影响应用启动）:', migrationError.message)
+        }
+        
+        // Migration 012: Token indexes for better query performance
+        try {
+          const indexCheck = await query(`
+            SELECT EXISTS (
+              SELECT 1 FROM pg_indexes 
+              WHERE indexname = 'idx_token_usage_user_id'
+            ) AS exists
+          `)
+          const indexExists = indexCheck.rows[0]?.exists
+          
+          if (!indexExists) {
+            console.log('🔄 检测到需要运行 token 索引迁移...')
+            const migrationPath = path.join(__dirname, 'db', 'migrations', '012_token_indexes.sql')
+            if (fs.existsSync(migrationPath)) {
+              const migrationSQL = fs.readFileSync(migrationPath, 'utf8')
+              await query(migrationSQL)
+              console.log('✅ 迁移完成: token 索引已创建')
+            }
+          }
+        } catch (migrationError) {
+          console.warn('⚠️ token 索引迁移检查失败（不影响应用启动）:', migrationError.message)
+        }
       
       // 启动时清理一次旧图片和旧消息
       await cleanupOldImages()
