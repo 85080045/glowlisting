@@ -399,6 +399,7 @@ export const zh = {
     queueDone: '已完成',
     queueError: '失败',
     statusQueued: '排队中',
+    startBatch: '开始处理',
     statusProcessing: '处理中',
     statusDone: '已完成',
     statusError: '失败',
