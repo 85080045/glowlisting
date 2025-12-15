@@ -63,7 +63,7 @@ function Home() {
         setTimeout(() => {
           const element = document.getElementById(hash)
           if (element) {
-            const headerHeight = 48 // header高度是h-12，即48px
+            const headerHeight = 64 // header高度是h-16，即64px（包含顶部padding）
             const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
             const offsetPosition = elementPosition - headerHeight
 

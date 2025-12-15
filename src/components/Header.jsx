@@ -18,7 +18,7 @@ export default function Header() {
   const scrollToSection = (sectionId) => {
     const element = document.getElementById(sectionId)
     if (element) {
-      const headerHeight = 48 // header高度是h-12，即48px
+      const headerHeight = 64 // header高度是h-16，即64px（包含顶部padding）
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
       const offsetPosition = elementPosition - headerHeight
 
@@ -50,7 +50,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 pt-4 px-4">
       <nav className="max-w-5xl mx-auto">
         <div className="glass-dark backdrop-blur-md bg-black/20 rounded-2xl border border-white/10 shadow-lg">
-          <div className="flex justify-between items-center h-12 px-4 sm:px-6">
+          <div className="flex justify-between items-center h-14 px-4 sm:px-6">
           {/* Logo */}
           <Link 
             to="/" 
@@ -64,12 +64,60 @@ export default function Header() {
           
           {/* Desktop Navigation - 参考 Motorfy 风格：简洁短header */}
           <div className="hidden md:flex items-center space-x-6">
+            <a 
+              href="#detailed-features" 
+              className="text-gray-300 hover:text-white transition-colors text-sm font-medium cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault()
+                if (location.pathname === '/') {
+                  scrollToSection('detailed-features')
+                } else {
+                  navigate('/#detailed-features')
+                }
+              }}
+            >
+              {t('nav.features')}
+            </a>
+            <a 
+              href="#pricing" 
+              className="text-gray-300 hover:text-white transition-colors text-sm font-medium cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault()
+                if (location.pathname === '/') {
+                  scrollToSection('pricing')
+                } else {
+                  navigate('/#pricing')
+                }
+              }}
+            >
+              {t('nav.pricing')}
+            </a>
+            <Link 
+              to="/about" 
+              className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+            >
+              {t('nav.about')}
+            </Link>
             <Link 
               to="/blog" 
               className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
             >
               {t('nav.blog')}
             </Link>
+            <a 
+              href="#faq" 
+              className="text-gray-300 hover:text-white transition-colors text-sm font-medium cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault()
+                if (location.pathname === '/') {
+                  scrollToSection('faq')
+                } else {
+                  navigate('/#faq')
+                }
+              }}
+            >
+              {t('nav.faq')}
+            </a>
             <Link 
               to="/help" 
               className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
@@ -159,6 +207,43 @@ export default function Header() {
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
             <div className="md:hidden py-3 space-y-2 border-t border-white/10 px-4 sm:px-6">
+            <a 
+              href="#detailed-features" 
+              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2 cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault()
+                setMobileMenuOpen(false)
+                if (location.pathname === '/') {
+                  scrollToSection('detailed-features')
+                } else {
+                  navigate('/#detailed-features')
+                }
+              }}
+            >
+              {t('nav.features')}
+            </a>
+            <a 
+              href="#pricing" 
+              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2 cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault()
+                setMobileMenuOpen(false)
+                if (location.pathname === '/') {
+                  scrollToSection('pricing')
+                } else {
+                  navigate('/#pricing')
+                }
+              }}
+            >
+              {t('nav.pricing')}
+            </a>
+            <Link 
+              to="/about" 
+              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2" 
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {t('nav.about')}
+            </Link>
             <Link 
               to="/blog" 
               className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2" 
@@ -166,6 +251,21 @@ export default function Header() {
             >
               {t('nav.blog')}
             </Link>
+            <a 
+              href="#faq" 
+              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2 cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault()
+                setMobileMenuOpen(false)
+                if (location.pathname === '/') {
+                  scrollToSection('faq')
+                } else {
+                  navigate('/#faq')
+                }
+              }}
+            >
+              {t('nav.faq')}
+            </a>
             <Link 
               to="/help" 
               className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2" 
