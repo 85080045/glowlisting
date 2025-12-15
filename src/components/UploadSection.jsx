@@ -351,7 +351,7 @@ export default function UploadSection({
           </div>
         )}
 
-        {/* 隐私保护选项 - 在上传前显示 */}
+        {/* 手动选项 - 在上传前显示 */}
         <div className="card-glass mb-6">
           <h3 className="text-lg font-semibold text-white mb-4">{t('upload.privacyOptions')}</h3>
           <div className="space-y-4">

@@ -387,7 +387,7 @@ export const zh = {
     regenerateNotice: '不满意？您还可以重新生成 {{count}} 次。下载才会消耗 1 Token。',
     maxRegenerateReached: '已达到最大重新生成次数（3次）。请下载当前结果或上传新图片。',
     noPreviousGeneration: '请先生成图片，然后再重新生成。',
-    privacyOptions: '隐私保护选项',
+    privacyOptions: '手动选项',
     blurFaces: '模糊人脸',
     blurFacesDesc: '自动检测并模糊图片中的人脸，保护隐私',
     blurLicensePlates: '模糊车牌',

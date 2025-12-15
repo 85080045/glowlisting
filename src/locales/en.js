@@ -387,7 +387,7 @@ export const en = {
     regenerateNotice: 'Not satisfied? You can regenerate up to {{count}} more time(s). Download will consume 1 Token.',
     maxRegenerateReached: 'Maximum regenerate count reached (3 times). Please download the current result or upload a new image.',
     noPreviousGeneration: 'Please generate the image first before regenerating.',
-    privacyOptions: 'Privacy Protection Options',
+    privacyOptions: 'Manual Options',
     blurFaces: 'Blur Faces',
     blurFacesDesc: 'Automatically detect and blur faces in the image to protect privacy',
     blurLicensePlates: 'Blur License Plates',
