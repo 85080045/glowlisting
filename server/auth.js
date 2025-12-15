@@ -259,14 +259,20 @@ export const getUserByIdAsync = async (userId) => {
   if (!useDb) {
     return getUserById(userId)
   }
-  // 查询用户信息并计算 totalProcessed
+  // 查询用户信息并计算 totalProcessed 和 tokensUsed
   const result = await query(
     `SELECT u.id, u.name, u.email, u.is_admin, u.created_at, u.last_login_at, u.last_login_ip, 
             u.last_login_country, u.last_login_country_code, u.last_login_city,
+            COALESCE(tb.balance, 0) AS balance,
             COALESCE((
               SELECT COUNT(*) FROM token_usage tu WHERE tu.user_id = u.id AND tu.action = 'process'
-            ),0) AS total_processed
+            ),0) AS total_processed,
+            COALESCE((
+              SELECT COUNT(*) FROM token_usage tu 
+              WHERE tu.user_id = u.id AND tu.action IN ('process', 'download')
+            ),0) AS total_tokens_used
      FROM users u
+     LEFT JOIN tokens_balance tb ON tb.user_id = u.id
      WHERE u.id=$1`,
     [userId]
   )
@@ -279,6 +285,8 @@ export const getUserByIdAsync = async (userId) => {
     isAdmin: row.is_admin,
     createdAt: row.created_at,
     totalProcessed: Number(row.total_processed || 0),
+    tokensUsed: Number(row.total_tokens_used || 0),
+    tokensRemaining: Number(row.balance || 0),
     lastLoginAt: row.last_login_at,
     lastLoginIp: row.last_login_ip,
     lastLoginCountry: row.last_login_country,
