@@ -440,6 +440,19 @@ export default function AdminDashboard() {
           >
             {t('adminDashboard.analytics')}
           </button>
+          <button
+            onClick={() => {
+              setActiveTab('visits')
+              fetchVisitsStats()
+            }}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'visits'
+                ? 'bg-blue-600 text-white'
+                : 'glass-dark text-gray-300 hover:bg-gray-800'
+            }`}
+          >
+            {t('adminDashboard.visits') || 'Visits & Traffic'}
+          </button>
         <button
           onClick={() => setActiveTab('orders')}
           className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
