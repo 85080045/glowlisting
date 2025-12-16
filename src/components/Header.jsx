@@ -130,9 +130,10 @@ export default function Header() {
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+                    className="flex items-center space-x-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm font-medium"
                   >
-                    {t('auth.login')}
+                    <User className="h-4 w-4" />
+                    <span>{user.name}</span>
                   </button>
                   
                   {userMenuOpen && (
