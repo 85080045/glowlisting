@@ -84,14 +84,6 @@ function Home() {
         <Hero />
         <Features />
         <DetailedFeatures />
-        <UploadSection 
-          uploadedImage={uploadedImage}
-          setUploadedImage={setUploadedImage}
-          enhancedImage={enhancedImage}
-          setEnhancedImage={setEnhancedImage}
-          isProcessing={isProcessing}
-          setIsProcessing={setIsProcessing}
-        />
         <Benefits />
         <Testimonials />
         <Pricing />
