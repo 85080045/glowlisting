@@ -164,8 +164,8 @@ export default function Header() {
                   </button>
                   
                   {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 glass-dark rounded-lg shadow-xl border border-white/10 py-2 z-50">
-                      <div className="px-4 py-2 border-b border-white/10">
+                    <div className="absolute right-0 mt-2 w-48 glass-dark rounded-lg shadow-xl py-2 z-50">
+                      <div className="px-4 py-2">
                         <p className="text-sm font-medium text-white">{user.name}</p>
                         <p className="text-xs text-gray-400">{user.email}</p>
                       </div>
@@ -235,7 +235,7 @@ export default function Header() {
 
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
-            <div className="md:hidden py-3 space-y-2 border-t border-white/10 px-4 sm:px-6">
+            <div className="md:hidden py-3 space-y-2 px-4 sm:px-6">
             <a 
               href="#detailed-features" 
               className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2 cursor-pointer"
@@ -305,7 +305,7 @@ export default function Header() {
             
             {user ? (
               <>
-                <div className="px-2 py-2 border-t border-white/10">
+                <div className="px-2 py-2">
                   <p className="text-sm font-medium text-white">{user.name}</p>
                   <p className="text-xs text-gray-400">{user.email}</p>
                 </div>
