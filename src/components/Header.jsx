@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
-import LanguageSelector from './LanguageSelector'
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -181,17 +180,11 @@ export default function Header() {
                 {t('auth.login')}
               </button>
             )}
-            
-            {/* 语言选择器 */}
-            <div className="ml-2">
-              <LanguageSelector />
-            </div>
           </div>
           </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center space-x-3">
-            <LanguageSelector />
             <button
               className="p-2 text-gray-300 hover:text-white"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

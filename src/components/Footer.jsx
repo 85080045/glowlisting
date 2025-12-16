@@ -1,6 +1,7 @@
 import { Camera } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../contexts/LanguageContext'
+import LanguageSelector from './LanguageSelector'
 
 export default function Footer() {
   const { t } = useLanguage()
@@ -48,8 +49,9 @@ export default function Footer() {
           </div>
         </div>
         
-        <div className="border-t border-gray-800 pt-8 text-center text-sm">
-          <p>{t('footer.copyright')}</p>
+        <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-sm">{t('footer.copyright')}</p>
+          <LanguageSelector />
         </div>
       </div>
     </footer>
