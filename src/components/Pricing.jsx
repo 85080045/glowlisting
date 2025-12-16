@@ -289,17 +289,6 @@ export default function Pricing() {
             </ScrollRevealItem>
           ))}
         </div>
-
-        <ScrollReveal variant="fadeScale" delay={0.3}>
-          <div className="mt-12 text-center">
-            <p className="text-gray-400 mb-4">
-              {t('pricing.needCustom')}
-            </p>
-            <button className="px-8 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 shadow-md hover:shadow-lg">
-              {t('pricing.contactTeam')}
-            </button>
-          </div>
-        </ScrollReveal>
       </div>
     </section>
   )
