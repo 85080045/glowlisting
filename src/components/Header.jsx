@@ -7,6 +7,8 @@ import { useNavigate, Link, useLocation } from 'react-router-dom'
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
   const { t } = useLanguage()
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
@@ -28,6 +30,29 @@ export default function Header() {
     }
   }
 
+  // 滚动时隐藏/显示 header
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      
+      if (currentScrollY < 10) {
+        // 在顶部时始终显示
+        setIsVisible(true)
+      } else if (currentScrollY > lastScrollY && currentScrollY > 80) {
+        // 向下滚动且超过 80px 时隐藏
+        setIsVisible(false)
+      } else if (currentScrollY < lastScrollY) {
+        // 向上滚动时显示
+        setIsVisible(true)
+      }
+      
+      setLastScrollY(currentScrollY)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [lastScrollY])
+
   // 点击外部关闭用户菜单
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -46,7 +71,9 @@ export default function Header() {
   }, [userMenuOpen])
 
   return (
-    <header className="sticky top-0 z-50 pt-4 px-4">
+    <header className={`sticky z-50 pt-4 px-4 transition-transform duration-300 ${
+      isVisible ? 'top-0' : '-top-24'
+    }`}>
       <nav className="max-w-5xl mx-auto">
         <div className="glass-dark backdrop-blur-md bg-black/20 rounded-2xl border border-white/10 shadow-lg">
           <div className="flex flex-row justify-between items-center h-14 px-3 sm:px-6">
