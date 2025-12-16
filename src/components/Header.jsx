@@ -75,7 +75,7 @@ export default function Header() {
       isVisible ? 'top-0' : '-top-24'
     }`}>
       <nav className="max-w-5xl mx-auto">
-        <div className="glass-dark backdrop-blur-md bg-black/20 rounded-2xl border border-white/10 shadow-lg">
+        <div className="glass-dark backdrop-blur-md bg-black/20 rounded-2xl shadow-lg">
           <div className="flex flex-row justify-between items-center h-14 px-3 sm:px-6">
             {/* Logo */}
             <Link 
