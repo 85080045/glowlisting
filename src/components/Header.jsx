@@ -184,8 +184,16 @@ export default function Header() {
           </div>
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile menu button and login */}
           <div className="md:hidden flex items-center space-x-3">
+            {!user && (
+              <button
+                onClick={() => navigate('/login')}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                {t('auth.login')}
+              </button>
+            )}
             <button
               className="p-2 text-gray-300 hover:text-white"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
