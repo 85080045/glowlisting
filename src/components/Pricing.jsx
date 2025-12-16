@@ -269,8 +269,8 @@ export default function Pricing() {
                   disabled={loadingPlan === plan.name}
                   className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${
                     plan.popular
-                      ? 'bg-white text-blue-600 hover:bg-gray-100 shadow-lg hover:shadow-xl hover:scale-105'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white border border-gray-600'
+                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 shadow-lg hover:shadow-xl hover:scale-105'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
                   } ${loadingPlan === plan.name ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
                   {loadingPlan === plan.name ? t('pricing.loading') || 'Processing...' : plan.cta}
@@ -295,7 +295,7 @@ export default function Pricing() {
             <p className="text-gray-400 mb-4">
               {t('pricing.needCustom')}
             </p>
-            <button className="btn-secondary">
+            <button className="px-8 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 shadow-md hover:shadow-lg">
               {t('pricing.contactTeam')}
             </button>
           </div>
