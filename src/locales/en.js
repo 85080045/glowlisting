@@ -6,6 +6,7 @@ export const en = {
     faq: 'FAQ',
     about: 'About',
     blog: 'Blog',
+    support: 'Support',
     getStarted: 'Get Started',
     tokens: 'tokens',
     dashboard: 'Dashboard',

@@ -6,6 +6,7 @@ export const zh = {
     faq: '常见问题',
     about: '关于',
     blog: '博客',
+    support: '支持',
     getStarted: '开始使用',
     tokens: '次',
     dashboard: '个人中心',
