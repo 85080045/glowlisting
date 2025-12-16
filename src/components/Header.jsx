@@ -175,7 +175,7 @@ export default function Header() {
             ) : (
               <button
                 onClick={() => navigate('/login')}
-                className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
               >
                 {t('auth.login')}
               </button>
@@ -307,7 +307,7 @@ export default function Header() {
                   navigate('/login')
                   setMobileMenuOpen(false)
                 }}
-                className="w-full text-left text-gray-300 hover:text-white transition-colors text-sm font-medium py-2"
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium text-center"
               >
                 {t('auth.login')}
               </button>
