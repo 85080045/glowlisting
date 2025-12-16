@@ -579,7 +579,7 @@ export const en = {
     free: 'Free Trial',
     freePrice: '$0',
     freePeriod: '',
-    freeDesc: 'Enhance up to 5 images for free. No credit card required.',
+    freeDesc: 'Enhance up to 3 images for free. No credit card required.',
     pro: 'GlowListing Pro',
     proPrice: '$29',
     proOriginalPrice: '$99',
@@ -601,7 +601,7 @@ export const en = {
     contactTeam: 'Contact Our Team',
     loading: 'Processing...',
     features: {
-      freeImages: 'Up to 5 images free',
+      freeImages: 'Up to 3 images free',
       freeNoCard: 'No credit card required',
       freeFullQuality: 'Full-quality enhancements',
       proImages: 'Up to 100 images per month',

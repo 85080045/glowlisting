@@ -165,11 +165,11 @@ export const registerUser = async (name, email, password) => {
       [name, email, hashedPassword, false]
     )
     const user = insertUser.rows[0]
-    // 新用户注册送 5 张图片
+    // 新用户注册送 3 张免费图片
     await query(
       `INSERT INTO tokens_balance (user_id, balance) VALUES ($1,$2)
        ON CONFLICT (user_id) DO UPDATE SET balance = tokens_balance.balance + EXCLUDED.balance, updated_at = NOW()`,
-      [user.id, 5]
+      [user.id, 3]
     )
     return {
       id: user.id,

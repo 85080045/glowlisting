@@ -579,7 +579,7 @@ export const zh = {
     free: '免费试用',
     freePrice: '$0',
     freePeriod: '',
-    freeDesc: '最多可免费增强 5 张图片，无需信用卡。',
+    freeDesc: '最多可免费增强 3 张图片，无需信用卡。',
     pro: 'GlowListing Pro',
     proPrice: '$29',
     proOriginalPrice: '$99',
@@ -601,7 +601,7 @@ export const zh = {
     contactTeam: '联系我们的团队',
     loading: '处理中...',
     features: {
-      freeImages: '免费增强最多 5 张图片',
+      freeImages: '免费增强最多 3 张图片',
       freeNoCard: '无需信用卡',
       freeFullQuality: '完整品质增强',
       proImages: '每月最多 100 张图片',
