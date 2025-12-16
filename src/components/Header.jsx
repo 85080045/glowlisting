@@ -182,7 +182,6 @@ export default function Header() {
               </button>
             )}
           </div>
-          </div>
 
           {/* Mobile menu button and login */}
           <div className="md:hidden flex items-center space-x-2 flex-shrink-0">
