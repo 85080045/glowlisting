@@ -49,17 +49,17 @@ export default function Header() {
     <header className="sticky top-0 z-50 pt-4 px-4">
       <nav className="max-w-5xl mx-auto">
         <div className="glass-dark backdrop-blur-md bg-black/20 rounded-2xl border border-white/10 shadow-lg">
-          <div className="flex justify-between items-center h-14 px-4 sm:px-6">
-          {/* Logo */}
-          <Link 
-            to="/" 
-            className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-              <Camera className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-semibold text-white">GlowListing</span>
-          </Link>
+          <div className="flex flex-row justify-between items-center h-14 px-3 sm:px-6">
+            {/* Logo */}
+            <Link 
+              to="/" 
+              className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
+            >
+              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                <Camera className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              </div>
+              <span className="text-base md:text-lg font-semibold text-white">GlowListing</span>
+            </Link>
           
           {/* Desktop Navigation - 参考 Motorfy 风格：简洁短header */}
           <div className="hidden md:flex items-center space-x-6">
@@ -185,17 +185,17 @@ export default function Header() {
           </div>
 
           {/* Mobile menu button and login */}
-          <div className="md:hidden flex items-center space-x-3">
+          <div className="md:hidden flex items-center space-x-2 flex-shrink-0">
             {!user && (
               <button
                 onClick={() => navigate('/login')}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-xs font-medium whitespace-nowrap"
               >
                 {t('auth.login')}
               </button>
             )}
             <button
-              className="p-2 text-gray-300 hover:text-white"
+              className="p-1.5 text-gray-300 hover:text-white"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
