@@ -6,9 +6,9 @@ export default function Hero() {
   const { t } = useLanguage()
   
   return (
-    <section className="relative pt-0 pb-16 md:pb-20 px-4 overflow-visible min-h-screen flex items-center" style={{ marginTop: '-80px', paddingTop: '80px' }}>
+    <section className="relative pt-32 pb-20 md:pb-24 px-4 overflow-visible min-h-screen flex items-center">
       {/* 全屏渐变背景动画 - 参考科技公司设计，从页面顶部开始 */}
-      <div className="absolute top-0 left-0 right-0 w-full z-0" style={{ top: '-80px', height: '100vh', minHeight: '100vh' }}>
+      <div className="absolute top-0 left-0 right-0 w-full z-0 h-full min-h-screen">
         {/* 主渐变层 - 蓝色到紫色到粉色 */}
         <div className="absolute inset-0 hero-gradient-flow"></div>
         
@@ -45,39 +45,39 @@ export default function Hero() {
         </ScrollReveal>
         
         <ScrollReveal variant="fade" delay={0.1}>
-          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 mb-12 md:mb-16 max-w-3xl mx-auto leading-relaxed px-4">
+          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 mb-16 md:mb-20 max-w-4xl mx-auto leading-relaxed px-4">
             {t('hero.description')}
           </p>
         </ScrollReveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
           <ScrollRevealItem variant="fadeScale" delay={0.05}>
-            <div className="card-glass text-center">
-              <div className="bg-gradient-to-br from-blue-500 to-cyan-500 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <Zap className="h-10 w-10 text-white" />
+            <div className="card-glass text-center p-8">
+              <div className="bg-gradient-to-br from-blue-500 to-cyan-500 w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <Zap className="h-8 w-8 md:h-10 md:w-10 text-white" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-white">{t('hero.feature1')}</h3>
-              <p className="text-gray-300 leading-relaxed">{t('hero.feature1Desc')}</p>
+              <h3 className="text-lg md:text-xl font-bold mb-3 text-white">{t('hero.feature1')}</h3>
+              <p className="text-sm md:text-base text-gray-300 leading-relaxed">{t('hero.feature1Desc')}</p>
             </div>
           </ScrollRevealItem>
           
           <ScrollRevealItem variant="fadeScale" delay={0.1}>
-            <div className="card-glass text-center">
-              <div className="bg-gradient-to-br from-cyan-500 to-blue-500 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <Upload className="h-10 w-10 text-white" />
+            <div className="card-glass text-center p-8">
+              <div className="bg-gradient-to-br from-cyan-500 to-blue-500 w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <Upload className="h-8 w-8 md:h-10 md:w-10 text-white" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-white">{t('hero.feature2')}</h3>
-              <p className="text-gray-300 leading-relaxed">{t('hero.feature2Desc')}</p>
+              <h3 className="text-lg md:text-xl font-bold mb-3 text-white">{t('hero.feature2')}</h3>
+              <p className="text-sm md:text-base text-gray-300 leading-relaxed">{t('hero.feature2Desc')}</p>
             </div>
           </ScrollRevealItem>
           
           <ScrollRevealItem variant="fadeScale" delay={0.15}>
-            <div className="card-glass text-center">
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-500 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <Sparkles className="h-10 w-10 text-white" />
+            <div className="card-glass text-center p-8">
+              <div className="bg-gradient-to-br from-indigo-500 to-purple-500 w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <Sparkles className="h-8 w-8 md:h-10 md:w-10 text-white" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-white">{t('hero.feature3')}</h3>
-              <p className="text-gray-300 leading-relaxed">{t('hero.feature3Desc')}</p>
+              <h3 className="text-lg md:text-xl font-bold mb-3 text-white">{t('hero.feature3')}</h3>
+              <p className="text-sm md:text-base text-gray-300 leading-relaxed">{t('hero.feature3Desc')}</p>
             </div>
           </ScrollRevealItem>
         </div>
