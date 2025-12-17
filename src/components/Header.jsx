@@ -76,16 +76,16 @@ export default function Header() {
     }`}>
       <nav className="max-w-5xl mx-auto">
         <div className="glass-dark backdrop-blur-md bg-black/20 rounded-2xl">
-          <div className="flex flex-row justify-between items-center h-16 md:h-18 px-4 sm:px-8">
+          <div className="flex flex-row justify-between items-center h-[70px] md:h-20 px-4 sm:px-8">
             {/* Logo */}
             <Link 
               to="/" 
               className="flex items-center space-x-2.5 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
             >
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+              <div className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
                 <Camera className="h-5 w-5 md:h-6 md:w-6 text-white" />
               </div>
-              <span className="text-lg md:text-xl font-semibold text-white">GlowListing</span>
+              <span className="text-xl md:text-2xl font-semibold text-white">GlowListing</span>
             </Link>
           
           {/* Desktop Navigation - 参考 Motorfy 风格：简洁短header */}
@@ -235,10 +235,10 @@ export default function Header() {
 
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
-            <div className="md:hidden py-3 space-y-2 px-4 sm:px-6">
+            <div className="md:hidden py-4 space-y-1 px-4 sm:px-6">
             <a 
               href="#detailed-features" 
-              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2 cursor-pointer"
+              className="block text-gray-300 hover:text-white transition-colors text-base font-medium py-3 cursor-pointer"
               onClick={(e) => {
                 e.preventDefault()
                 setMobileMenuOpen(false)
@@ -253,7 +253,7 @@ export default function Header() {
             </a>
             <a 
               href="#pricing" 
-              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2 cursor-pointer"
+              className="block text-gray-300 hover:text-white transition-colors text-base font-medium py-3 cursor-pointer"
               onClick={(e) => {
                 e.preventDefault()
                 setMobileMenuOpen(false)
@@ -268,21 +268,21 @@ export default function Header() {
             </a>
             <Link 
               to="/about" 
-              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2" 
+              className="block text-gray-300 hover:text-white transition-colors text-base font-medium py-3" 
               onClick={() => setMobileMenuOpen(false)}
             >
               {t('nav.about')}
             </Link>
             <Link 
               to="/blog" 
-              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2" 
+              className="block text-gray-300 hover:text-white transition-colors text-base font-medium py-3" 
               onClick={() => setMobileMenuOpen(false)}
             >
               {t('nav.blog')}
             </Link>
             <a 
               href="#faq" 
-              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2 cursor-pointer"
+              className="block text-gray-300 hover:text-white transition-colors text-base font-medium py-3 cursor-pointer"
               onClick={(e) => {
                 e.preventDefault()
                 setMobileMenuOpen(false)
@@ -297,7 +297,7 @@ export default function Header() {
             </a>
             <Link 
               to="/help" 
-              className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2" 
+              className="block text-gray-300 hover:text-white transition-colors text-base font-medium py-3" 
               onClick={() => setMobileMenuOpen(false)}
             >
               {t('nav.support')}
@@ -305,13 +305,13 @@ export default function Header() {
             
             {user ? (
               <>
-                <div className="px-2 py-2">
-                  <p className="text-sm font-medium text-white">{user.name}</p>
-                  <p className="text-xs text-gray-400">{user.email}</p>
+                <div className="px-2 py-3">
+                  <p className="text-base font-medium text-white">{user.name}</p>
+                  <p className="text-sm text-gray-400">{user.email}</p>
                 </div>
                 <Link 
                   to="/dashboard" 
-                  className="block text-gray-300 hover:text-white transition-colors text-sm font-medium py-2"
+                  className="block text-gray-300 hover:text-white transition-colors text-base font-medium py-3"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t('nav.dashboard')}
@@ -319,7 +319,7 @@ export default function Header() {
                 {isAdmin && (
                   <Link 
                     to="/admin" 
-                    className="block text-red-400 hover:text-red-300 transition-colors text-sm font-medium py-2"
+                    className="block text-red-400 hover:text-red-300 transition-colors text-base font-medium py-3"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {t('nav.admin')}
@@ -331,9 +331,9 @@ export default function Header() {
                     navigate('/')
                     setMobileMenuOpen(false)
                   }}
-                  className="w-full text-left text-gray-300 hover:text-white transition-colors text-sm font-medium py-2 flex items-center space-x-2"
+                  className="w-full text-left text-gray-300 hover:text-white transition-colors text-base font-medium py-3 flex items-center space-x-2"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-5 w-5" />
                   <span>{t('nav.logout')}</span>
                 </button>
               </>
@@ -343,7 +343,7 @@ export default function Header() {
                   navigate('/login')
                   setMobileMenuOpen(false)
                 }}
-                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium text-center"
+                className="w-full px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-base font-medium text-center"
               >
                 {t('auth.login')}
               </button>
