@@ -76,23 +76,23 @@ export default function Header() {
     }`}>
       <nav className="max-w-5xl mx-auto">
         <div className="glass-dark backdrop-blur-md bg-black/20 rounded-2xl">
-          <div className="flex flex-row justify-between items-center h-14 px-3 sm:px-6">
+          <div className="flex flex-row justify-between items-center h-16 md:h-18 px-4 sm:px-8">
             {/* Logo */}
             <Link 
               to="/" 
-              className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
+              className="flex items-center space-x-2.5 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
             >
-              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                <Camera className="h-4 w-4 md:h-5 md:w-5 text-white" />
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                <Camera className="h-5 w-5 md:h-6 md:w-6 text-white" />
               </div>
-              <span className="text-base md:text-lg font-semibold text-white">GlowListing</span>
+              <span className="text-lg md:text-xl font-semibold text-white">GlowListing</span>
             </Link>
           
           {/* Desktop Navigation - 参考 Motorfy 风格：简洁短header */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden md:flex items-center space-x-7">
             <a 
               href="#detailed-features" 
-              className="text-gray-300 hover:text-white transition-colors text-sm font-medium cursor-pointer"
+              className="text-gray-300 hover:text-white transition-colors text-base font-medium cursor-pointer"
               onClick={(e) => {
                 e.preventDefault()
                 if (location.pathname === '/') {
@@ -106,7 +106,7 @@ export default function Header() {
             </a>
             <a 
               href="#pricing" 
-              className="text-gray-300 hover:text-white transition-colors text-sm font-medium cursor-pointer"
+              className="text-gray-300 hover:text-white transition-colors text-base font-medium cursor-pointer"
               onClick={(e) => {
                 e.preventDefault()
                 if (location.pathname === '/') {
@@ -120,19 +120,19 @@ export default function Header() {
             </a>
             <Link 
               to="/about" 
-              className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+              className="text-gray-300 hover:text-white transition-colors text-base font-medium"
             >
               {t('nav.about')}
             </Link>
             <Link 
               to="/blog" 
-              className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+              className="text-gray-300 hover:text-white transition-colors text-base font-medium"
             >
               {t('nav.blog')}
             </Link>
             <a 
               href="#faq" 
-              className="text-gray-300 hover:text-white transition-colors text-sm font-medium cursor-pointer"
+              className="text-gray-300 hover:text-white transition-colors text-base font-medium cursor-pointer"
               onClick={(e) => {
                 e.preventDefault()
                 if (location.pathname === '/') {
@@ -146,7 +146,7 @@ export default function Header() {
             </a>
             <Link 
               to="/help" 
-              className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+              className="text-gray-300 hover:text-white transition-colors text-base font-medium"
             >
               {t('nav.support')}
             </Link>
