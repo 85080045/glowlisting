@@ -527,6 +527,31 @@ export default function UploadSection({
                 </div>
               </div>
             </label>
+            
+            {/* 黄昏效果开关 */}
+            <label className="flex items-center justify-between cursor-pointer group">
+              <div className="flex-1 pr-4">
+                <span className="text-white font-medium block mb-1">{t('upload.twilightLook')}</span>
+                <p className="text-sm text-gray-400">{t('upload.twilightLookDesc')}</p>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={privacyOptions.twilightLook}
+                  onChange={(e) => setPrivacyOptions({ ...privacyOptions, twilightLook: e.target.checked })}
+                  className="sr-only"
+                />
+                <div className={`w-14 h-8 rounded-full transition-all duration-300 ease-in-out relative ${
+                  privacyOptions.twilightLook 
+                    ? 'bg-blue-600 shadow-lg shadow-blue-500/50' 
+                    : 'bg-gray-700'
+                }`}>
+                  <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform duration-300 ease-in-out absolute top-1/2 -translate-y-1/2 ${
+                    privacyOptions.twilightLook ? 'translate-x-6' : 'translate-x-1'
+                  }`}></div>
+                </div>
+              </div>
+            </label>
           </div>
         </div>
 
