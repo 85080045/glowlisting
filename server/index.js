@@ -3003,12 +3003,19 @@ app.post('/api/enhance', upload.single('image'), async (req, res) => {
     const blurFaces = req.body.blurFaces === 'true' || req.body.blurFaces === true
     const blurLicensePlates = req.body.blurLicensePlates === 'true' || req.body.blurLicensePlates === true
     const removeSmallObjects = req.body.removeSmallObjects === 'true' || req.body.removeSmallObjects === true
+    const twilightLook = req.body.twilightLook === 'true' || req.body.twilightLook === true
     
-    console.log('Manual Options:', { blurFaces, blurLicensePlates, removeSmallObjects })
+    console.log('Manual Options:', { blurFaces, blurLicensePlates, removeSmallObjects, twilightLook })
     
     // 构建隐私保护提示
     let privacyPrompt = ''
     let cleanupPrompt = ''
+    let twilightPrompt = ''
+    
+    if (twilightLook) {
+      twilightPrompt = '\n\n【重要：黄昏效果转换】将这张外景房屋照片转换为高端黄昏风格的房地产图像。\n\n具体要求：\n1. 将天空改为戏剧性的黄昏或日落天空，带有柔和的云彩和温暖的色调。\n2. 打开室内和室外灯光，使窗户发出温暖的光芒。\n3. 增强对比度、深度和色彩，创造电影般的、高端的房源外观。\n4. 保持建筑结构、屋顶、墙壁、车道和景观不变。\n5. 不要改变房屋的形状或布局。\n6. 最终效果应看起来像专业制作的黄昏房地产照片。\n\n这是用户明确要求的黄昏效果转换，必须严格执行。\n\n'
+      console.log('Twilight prompt added')
+    }
     
     if (removeSmallObjects) {
       cleanupPrompt = '\n\n【重要：小物体移除】自动检测并移除图片中桌子、地板、书桌、沙发、床、椅子上可见的所有小物体（如杂物、小物品、临时物品、个人物品等）。移除时应保持表面自然、干净，避免留下明显的移除痕迹或空白区域。确保移除后的表面与周围环境自然融合，保持整体画面的整洁和专业感。这是用户明确要求的清理操作，必须严格执行。\n\n'

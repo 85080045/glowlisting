@@ -39,6 +39,7 @@ export default function UploadSection({
     blurFaces: false,      // 模糊人脸
     blurLicensePlates: false, // 模糊车牌
     removeSmallObjects: false, // 移除小物体
+    twilightLook: false,   // 黄昏效果（仅外景）
   })
 
   const SAMPLE_IMAGE_URL = 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1600&q=85'
@@ -353,7 +354,7 @@ export default function UploadSection({
     setShowCompare(false) // 关闭对比视图
     setExpireAt(null)
     setRemainingSeconds(null)
-    setPrivacyOptions({ blurFaces: false, blurLicensePlates: false, removeSmallObjects: false }) // 重置隐私选项
+    setPrivacyOptions({ blurFaces: false, blurLicensePlates: false, removeSmallObjects: false, twilightLook: false }) // 重置隐私选项
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
