@@ -34,6 +34,9 @@ export async function enhanceImage(imageDataUrl, isRegenerate = false, privacyOp
     if (privacyOptions.removeSmallObjects) {
       formData.append('removeSmallObjects', 'true')
     }
+    if (privacyOptions.twilightLook) {
+      formData.append('twilightLook', 'true')
+    }
 
     // 发送请求到后端 API
     const response = await axios.post(`${API_URL}/enhance`, formData, {

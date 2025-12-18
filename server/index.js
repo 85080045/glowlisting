@@ -3034,7 +3034,7 @@ app.post('/api/enhance', upload.single('image'), async (req, res) => {
     }
     
     // 准备 prompt - Commercial Real Estate Photo Enhancement Prompt (Refined Tonal Balance)
-    const prompt = `1. 曝光、色彩与 HDR (Refined Tonal Balance)
+    const prompt = `${twilightPrompt}1. 曝光、色彩与 HDR (Refined Tonal Balance)
 
 核心目标： 明亮、干净，但保持柔和的过渡和自然的对比度。
 
@@ -3107,6 +3107,7 @@ B. 室外照片 (Facade/Garden)：
 质量： 最终 JPEG 质量必须在 90% 以上，确保图像上传到任何平台后仍保持清晰、无损、无压缩带。${privacyPrompt}`
 
     console.log('Final prompt length:', prompt.length)
+    console.log('Twilight prompt included:', twilightLook)
     console.log('Cleanup prompt included:', removeSmallObjects)
     console.log('Privacy prompt included:', blurFaces || blurLicensePlates)
 
