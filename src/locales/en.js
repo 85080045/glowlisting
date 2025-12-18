@@ -405,6 +405,8 @@ export const en = {
     blurLicensePlatesDesc: 'Automatically detect and blur license plates to protect privacy',
     removeSmallObjects: 'Cleanup - Remove Small Objects',
     removeSmallObjectsDesc: 'Remove small objects on tables, floors, desks, couches, beds, and chairs',
+    twilightLook: 'Twilight Listing Look (Exterior only)',
+    twilightLookDesc: 'Convert daytime exterior photos into twilight-style listing images.',
     tourTitle: 'Quick Start',
     tourStepUpload: 'Upload your photo or use the sample image to try',
     tourStepOptions: 'Toggle Manual Options (blur faces/plates, remove small objects)',

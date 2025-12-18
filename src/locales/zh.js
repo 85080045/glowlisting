@@ -405,6 +405,8 @@ export const zh = {
     blurLicensePlatesDesc: '自动检测并模糊图片中的车牌，保护隐私',
     removeSmallObjects: '清理 - 移除小物体',
     removeSmallObjectsDesc: '移除桌子、地板、书桌、沙发、床和椅子上的小物体',
+    twilightLook: '黄昏效果（仅外景）',
+    twilightLookDesc: '将白天外景照片转换为黄昏风格的房源图片',
     tourTitle: '快速上手',
     tourStepUpload: '上传照片或一键使用示例图片',
     tourStepOptions: '开启手动选项（人脸/车牌模糊、小物体清理）',
