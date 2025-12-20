@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
+import logoImage from '/logo.png'
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -83,7 +84,7 @@ export default function Header() {
               className="flex items-center space-x-2.5 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
             >
               <img 
-                src="/logo.png" 
+                src={logoImage} 
                 alt="GlowListing Logo" 
                 className="w-10 h-10 md:w-11 md:h-11 object-contain"
               />
