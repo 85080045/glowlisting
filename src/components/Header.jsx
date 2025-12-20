@@ -88,7 +88,7 @@ export default function Header() {
                 alt="GlowListing Logo" 
                 className="w-10 h-10 md:w-11 md:h-11 object-contain"
               />
-              <span className="text-xl md:text-2xl font-semibold text-white">GlowListing</span>
+              <span className="text-xl md:text-2xl font-semibold text-white font-dancing">GlowListing</span>
             </Link>
           
           {/* Desktop Navigation - 参考 Motorfy 风格：简洁短header */}

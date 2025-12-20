@@ -344,7 +344,7 @@ export default function Login() {
               alt="GlowListing Logo" 
               className="h-6 w-6 md:h-8 md:w-8 object-contain"
             />
-            <span className="text-xl md:text-2xl font-bold text-white">GlowListing</span>
+            <span className="text-xl md:text-2xl font-bold text-white font-dancing">GlowListing</span>
           </Link>
         </div>
       </div>

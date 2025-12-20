@@ -20,6 +20,9 @@ export default {
           900: '#0c4a6e',
         },
       },
+      fontFamily: {
+        'dancing': ['Dancing Script', 'cursive'],
+      },
     },
   },
   plugins: [],
