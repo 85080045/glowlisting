@@ -1,4 +1,4 @@
-import { Camera, Menu, X, User, Coins, LogOut } from 'lucide-react'
+import { Menu, X, User, Coins, LogOut } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -82,9 +82,11 @@ export default function Header() {
               to="/" 
               className="flex items-center space-x-2.5 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
             >
-              <div className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                <Camera className="h-5 w-5 md:h-6 md:w-6 text-white" />
-              </div>
+              <img 
+                src="/logo.png" 
+                alt="GlowListing Logo" 
+                className="w-10 h-10 md:w-11 md:h-11 object-contain"
+              />
               <span className="text-xl md:text-2xl font-semibold text-white">GlowListing</span>
             </Link>
           
