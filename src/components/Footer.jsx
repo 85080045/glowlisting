@@ -1,7 +1,7 @@
-import { Camera } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../contexts/LanguageContext'
 import LanguageSelector from './LanguageSelector'
+import logoImage from '../assets/logo.png'
 
 export default function Footer() {
   const { t } = useLanguage()
@@ -11,7 +11,11 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div>
             <Link to="/" className="flex items-center space-x-2 mb-4">
-              <Camera className="h-6 w-6 text-blue-400" />
+              <img 
+                src={logoImage} 
+                alt="GlowListing Logo" 
+                className="h-6 w-6 object-contain"
+              />
               <span className="text-xl font-bold text-white">GlowListing</span>
             </Link>
             <p className="text-sm text-gray-400">

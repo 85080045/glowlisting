@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
-import { LogIn, Mail, Lock, User, Loader2, Camera } from 'lucide-react'
+import { LogIn, Mail, Lock, User, Loader2 } from 'lucide-react'
+import logoImage from '../assets/logo.png'
 import axios from 'axios'
 import { trackEvent } from '../utils/analytics'
 
@@ -338,7 +339,11 @@ export default function Login() {
             to="/" 
             className="inline-flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
           >
-            <Camera className="h-6 w-6 md:h-8 md:w-8 text-blue-400" />
+            <img 
+              src={logoImage} 
+              alt="GlowListing Logo" 
+              className="h-6 w-6 md:h-8 md:w-8 object-contain"
+            />
             <span className="text-xl md:text-2xl font-bold text-white">GlowListing</span>
           </Link>
         </div>
