@@ -8,7 +8,7 @@ export default function Hero() {
   return (
     <section className="relative pt-8 pb-20 md:pb-24 px-4 overflow-visible min-h-screen flex items-center" style={{ marginTop: '-80px', paddingTop: '80px' }}>
       {/* 全屏渐变背景动画 - 从页面绝对顶部开始，覆盖Header区域 */}
-      <div className="fixed top-0 left-0 right-0 w-full h-screen z-0">
+      <div className="fixed top-0 left-0 right-0 w-full h-screen z-0 pointer-events-none">
         {/* 主渐变层 - 蓝色到紫色到粉色 */}
         <div className="absolute inset-0 hero-gradient-flow"></div>
         
