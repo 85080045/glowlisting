@@ -87,6 +87,9 @@ export default function Header() {
                 src={logoImage} 
                 alt="GlowListing Logo" 
                 className="w-10 h-10 md:w-11 md:h-11 object-contain"
+                style={{
+                  filter: 'brightness(0) saturate(100%) invert(27%) sepia(100%) saturate(2000%) hue-rotate(180deg) brightness(1.2) contrast(1.1)'
+                }}
               />
               <span className="text-xl md:text-2xl font-semibold gradient-text font-dancing">GlowListing</span>
             </Link>
