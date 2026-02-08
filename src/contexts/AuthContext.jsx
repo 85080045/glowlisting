@@ -17,7 +17,6 @@ export const AuthProvider = ({ children }) => {
   const [tokens, setTokens] = useState(0)
 
   useEffect(() => {
-    // 检查是否有保存的token
     const token = localStorage.getItem('glowlisting_token')
     if (token) {
       fetchUserInfo()
@@ -41,7 +40,6 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  // 检查是否为管理员
   const isAdmin = () => {
     return user?.isAdmin === true
   }
@@ -54,7 +52,6 @@ export const AuthProvider = ({ children }) => {
       setTokens(response.tokens || 0)
       return { success: true }
     } catch (error) {
-      // 优先显示后端返回的具体错误信息
       const errorMessage = error.response?.data?.error || error.message || 'Login failed'
       return { success: false, error: errorMessage }
     }
@@ -68,7 +65,6 @@ export const AuthProvider = ({ children }) => {
       setTokens(response.tokens || 0)
       return { success: true }
     } catch (error) {
-      // 优先显示后端返回的具体错误信息
       const errorMessage = error.response?.data?.error || error.message || 'Registration failed'
       return { success: false, error: errorMessage }
     }

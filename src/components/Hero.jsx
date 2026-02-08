@@ -7,25 +7,14 @@ export default function Hero() {
   
   return (
     <section className="relative pt-8 pb-20 md:pb-24 px-4 overflow-visible min-h-screen flex items-center" style={{ marginTop: '-80px', paddingTop: '80px' }}>
-      {/* 全屏渐变背景动画 - 从页面绝对顶部开始，覆盖Header区域 */}
       <div className="fixed top-0 left-0 right-0 w-full h-screen z-0 pointer-events-none">
-        {/* 主渐变层 - 蓝色到紫色到粉色 */}
         <div className="absolute inset-0 hero-gradient-flow"></div>
-        
-        {/* 第二层渐变 - 反向流动 */}
         <div className="absolute inset-0 hero-gradient-flow-2"></div>
-        
-        {/* 径向光晕层 - 左上角蓝色 */}
         <div className="absolute inset-0 hero-radial-glow-1"></div>
-        
-        {/* 径向光晕层 - 右下角粉色 */}
         <div className="absolute inset-0 hero-radial-glow-2"></div>
-        
-        {/* 径向光晕层 - 中心混合 */}
         <div className="absolute inset-0 hero-radial-glow-3"></div>
       </div>
       
-      {/* 背景装饰 - 微妙的网格 */}
       <div className="absolute inset-0 tech-grid opacity-5 z-10"></div>
       
       <div className="relative max-w-7xl mx-auto text-center z-20">
@@ -82,7 +71,7 @@ export default function Hero() {
           </ScrollRevealItem>
         </div>
 
-        {/* 节省金额统计 */}
+        {/* Savings stat */}
         <ScrollReveal variant="fadeScale" delay={0.2}>
           <div className="mt-16 glass-dark rounded-3xl p-8 md:p-12 border border-blue-500/30">
             <div className="text-center">

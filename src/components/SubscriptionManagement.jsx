@@ -27,14 +27,12 @@ export default function SubscriptionManagement() {
   const fetchSubscriptionData = async () => {
     try {
       const token = localStorage.getItem('glowlisting_token')
-      // 这里应该调用实际的 API
       // const response = await axios.get(`${API_URL}/subscription`, {
       //   headers: { Authorization: `Bearer ${token}` }
       // })
       // setSubscription(response.data.subscription)
       // setBillingHistory(response.data.billingHistory)
       
-      // 临时数据
       setSubscription({
         plan: 'Free Trial',
         status: 'active',
@@ -85,7 +83,7 @@ export default function SubscriptionManagement() {
 
         <h1 className="text-3xl font-bold text-white mb-8">{t('subscription.title')}</h1>
 
-        {/* 当前订阅 */}
+        {/* Current subscription */}
         <div className="glass-dark rounded-xl p-6 mb-6">
           <h2 className="text-xl font-semibold text-white mb-4 flex items-center space-x-2">
             <CreditCard className="h-5 w-5" />
@@ -157,7 +155,7 @@ export default function SubscriptionManagement() {
           )}
         </div>
 
-        {/* 账单历史 */}
+        {/* Billing history */}
         <div className="glass-dark rounded-xl p-6">
           <h2 className="text-xl font-semibold text-white mb-4 flex items-center space-x-2">
             <Calendar className="h-5 w-5" />
@@ -199,5 +197,7 @@ export default function SubscriptionManagement() {
     </div>
   )
 }
+
+
 
 

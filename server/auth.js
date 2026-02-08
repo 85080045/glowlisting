@@ -3,21 +3,20 @@ import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { query } from './db/client.js'
 
-// 使用稳定的默认 JWT_SECRET，避免每次重启 token 失效；可被环境变量覆盖
+// Default JWT_SECRET (override with env)
 const JWT_SECRET = process.env.JWT_SECRET || 'glowlisting-stable-secret-change-in-prod'
 
 const useDb = !!process.env.DATABASE_URL
 
-// 简单的内存数据库（生产环境应使用真实数据库，已改为优先使用 Postgres）
 const users = []
-const tokens = new Map() // userId -> token count (fallback for无数据库)
-const activeSessions = new Set() // 在线用户session ID集合
-const tokenUsageHistory = [] // Token使用历史记录 { userId, timestamp, action }
-const revenueHistory = [] // 收入记录 { userId, amount, timestamp, type }
-const subscriptions = [] // 订阅记录 { userId, plan, startDate, endDate, status }
-const passwordResetTokens = new Map() // email -> { token, expiresAt }
+const tokens = new Map()
+const activeSessions = new Set()
+const tokenUsageHistory = []
+const revenueHistory = []
+const subscriptions = []
+const passwordResetTokens = new Map()
 
-// 初始化默认用户（用于测试）
+// Default test user
 users.push({
   id: '1',
   name: 'Test User',
@@ -28,9 +27,9 @@ users.push({
   tokensUsed: 0,
   isAdmin: false,
 })
-tokens.set('1', 10) // 给测试用户10个token
+tokens.set('1', 10)
 
-// 超级管理员账户
+// Super admin
 users.push({
   id: '999',
   name: 'Super Admin',
@@ -41,11 +40,10 @@ users.push({
   tokensUsed: 0,
   isAdmin: true,
 })
-tokens.set('999', 9999) // 超级管理员有9999个token
+tokens.set('999', 9999)
 
 export const authMiddleware = (req, res, next) => {
   try {
-    // 处理 OPTIONS 预检请求（不应该到达这里，但为了安全还是处理）
     if (req.method === 'OPTIONS') {
       console.log(`[Auth] OPTIONS request to ${req.path} - allowing preflight`)
       return res.status(200).end()
@@ -130,7 +128,6 @@ export const authMiddleware = (req, res, next) => {
   }
 }
 
-// 密码验证函数
 export const validatePassword = (password) => {
   if (password.length < 8) {
     return { valid: false, message: 'Password must be at least 8 characters long' }
@@ -148,7 +145,6 @@ export const validatePassword = (password) => {
 }
 
 export const registerUser = async (name, email, password) => {
-  // 验证密码
   const passwordValidation = validatePassword(password)
   if (!passwordValidation.valid) {
     throw new Error(passwordValidation.message)
@@ -165,7 +161,6 @@ export const registerUser = async (name, email, password) => {
       [name, email, hashedPassword, false]
     )
     const user = insertUser.rows[0]
-    // 新用户注册送 3 张免费图片
     await query(
       `INSERT INTO tokens_balance (user_id, balance) VALUES ($1,$2)
        ON CONFLICT (user_id) DO UPDATE SET balance = tokens_balance.balance + EXCLUDED.balance, updated_at = NOW()`,
@@ -182,7 +177,6 @@ export const registerUser = async (name, email, password) => {
     }
   }
 
-  // fallback 内存
   const existingUser = users.find(u => u.email === email)
   if (existingUser) {
     throw new Error('User already exists')
@@ -242,7 +236,6 @@ export const loginUser = async (email, password) => {
 
 export const getUserById = (userId) => {
   if (useDb) {
-    // 注意：此函数在 index.js 中同步使用，将其改为 async 会影响调用方；这里返回一个同步标记
     throw new Error('getUserById is synchronous; use getUserByIdAsync instead when DB is enabled')
   }
   return users.find(u => u.id === userId)
@@ -259,7 +252,6 @@ export const getUserByIdAsync = async (userId) => {
   if (!useDb) {
     return getUserById(userId)
   }
-  // 查询用户信息并计算 totalProcessed 和 tokensUsed
   const result = await query(
     `SELECT u.id, u.name, u.email, u.is_admin, u.created_at, u.last_login_at, u.last_login_ip, 
             u.last_login_country, u.last_login_country_code, u.last_login_city,
@@ -320,17 +312,15 @@ export const getUserTokens = (userId) => {
   return tokens.get(userId) || 0
 }
 
-// 生成密码重置token
 export const generatePasswordResetToken = (email) => {
   const token = crypto.randomBytes(32).toString('hex')
-  const expiresAt = Date.now() + 3600000 // 1小时后过期
+  const expiresAt = Date.now() + 3600000
   
   passwordResetTokens.set(email, { token, expiresAt })
   
   return token
 }
 
-// 验证密码重置token
 export const verifyPasswordResetToken = (email, token) => {
   const resetInfo = passwordResetTokens.get(email)
   
@@ -350,30 +340,24 @@ export const verifyPasswordResetToken = (email, token) => {
   return { valid: true }
 }
 
-// 重置密码
 export const resetPassword = async (email, token, newPassword) => {
-  // 验证token
   const tokenValidation = verifyPasswordResetToken(email, token)
   if (!tokenValidation.valid) {
     throw new Error(tokenValidation.message)
   }
   
-  // 验证新密码
   const passwordValidation = validatePassword(newPassword)
   if (!passwordValidation.valid) {
     throw new Error(passwordValidation.message)
   }
   
-  // 找到用户
   const user = getUserByEmail(email)
   if (!user) {
     throw new Error('User not found')
   }
   
-  // 更新密码
   user.password = await bcrypt.hash(newPassword, 10)
   
-  // 删除重置token
   passwordResetTokens.delete(email)
   
   return user
@@ -389,7 +373,6 @@ export const decrementUserTokens = (userId, action = 'download') => {
   const newCount = Math.max(0, current - 1)
   tokens.set(userId, newCount)
   
-  // 记录token使用历史
   tokenUsageHistory.push({
     userId,
     timestamp: new Date(),
@@ -401,11 +384,9 @@ export const decrementUserTokens = (userId, action = 'download') => {
   return newCount
 }
 
-// 记录token使用历史（不扣token）
 export const recordTokenUsage = (userId, action = 'generate') => {
   const current = tokens.get(userId) || 0
   
-  // 记录token使用历史（但不扣token）
   tokenUsageHistory.push({
     userId,
     timestamp: new Date(),

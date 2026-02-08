@@ -224,7 +224,7 @@ const upload = multer({
         fileExt.endsWith('.heif')) {
       cb(null, true)
     } else {
-      cb(new Error('只允许上传图片文件'), false)
+      cb(new Error('Only image files are allowed'), false)
     }
   }
 })
@@ -269,11 +269,11 @@ app.post('/api/auth/send-verification', async (req, res) => {
 
     // 检查是否有可用的邮件服务配置
     if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
-      console.error('❌ 邮件服务未配置')
-      console.log(`⚠️ 验证码（仅用于测试）: ${code} (10分钟内有效)`)
+      console.error('❌ Mail service not configured')
+      console.log(`⚠️ Verification code (test only): ${code} (valid 10 min)`)
       return res.status(500).json({ 
         error: mailLanguage === 'zh' 
-          ? '邮件服务未配置，请联系管理员' 
+          ? 'Mail service not configured. Please contact the administrator.' 
           : 'Email service not configured. Please contact administrator'
       })
     }
@@ -338,7 +338,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
         }
 
         await sgMail.send(msg)
-        console.log(`✅ 验证码邮件已通过 SendGrid 成功发送到 ${email}`)
+        console.log(`✅ Verification email sent via SendGrid to ${email}`)
       } 
       // 备选：使用 SMTP（仅当升级到付费服务时可用）
       else if (smtpHost && smtpPort && smtpUser && smtpPass) {
@@ -370,13 +370,13 @@ app.post('/api/auth/send-verification', async (req, res) => {
           text: textContent,
         })
 
-        console.log(`✅ 验证码邮件已通过 SMTP 成功发送到 ${email}`)
+        console.log(`✅ Verification email sent via SMTP to ${email}`)
       }
     } catch (emailError) {
-      console.error('❌ 发送邮件失败:', emailError)
-      console.error('错误代码:', emailError.code)
-      console.error('错误消息:', emailError.message)
-      console.error('SMTP配置:', {
+      console.error('❌ Send mail failed:', emailError)
+      console.error('Error code:', emailError.code)
+      console.error('Error message:', emailError.message)
+      console.error('SMTP config:', {
         host: smtpHost,
         port: smtpPort,
         secure: smtpSecure,
@@ -387,15 +387,15 @@ app.post('/api/auth/send-verification', async (req, res) => {
       let errorMessage
       if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
         errorMessage = mailLanguage === 'zh'
-          ? '无法连接到邮件服务器，请检查SMTP配置或网络连接'
+          ? 'Cannot connect to mail server. Check SMTP config or network.'
           : 'Cannot connect to email server. Please check SMTP configuration or network connection'
       } else if (emailError.code === 'EAUTH') {
         errorMessage = mailLanguage === 'zh'
-          ? '邮箱认证失败，请检查用户名和密码'
+          ? 'Mail auth failed. Check username and password.'
           : 'Email authentication failed. Please check username and password'
       } else {
         errorMessage = mailLanguage === 'zh'
-          ? `邮件发送失败: ${emailError.message || '未知错误'}`
+          ? `Send mail failed: ${emailError.message || 'Unknown error'}`
           : `Failed to send email: ${emailError.message || 'Unknown error'}`
       }
       
@@ -405,7 +405,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
     res.json({
       success: true,
       message: mailLanguage === 'zh' 
-        ? '验证码已发送到您的邮箱' 
+        ? 'Verification code sent to your email' 
         : 'Verification code sent to your email',
     })
   } catch (error) {
@@ -620,7 +620,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
         return res.status(500).json({ 
           error: mailLanguage === 'zh' 
-            ? '邮件服务未配置，请联系管理员' 
+            ? 'Mail service not configured. Please contact the administrator.' 
             : 'Email service not configured. Please contact administrator'
         })
       }
@@ -645,10 +645,10 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     // 检查是否有可用的邮件服务配置
     if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
-      console.error('❌ 邮件服务未配置')
+      console.error('❌ Mail service not configured')
       return res.status(500).json({ 
         error: mailLanguage === 'zh' 
-          ? '邮件服务未配置，请联系管理员' 
+          ? 'Mail service not configured. Please contact the administrator.' 
           : 'Email service not configured. Please contact administrator'
       })
     }
@@ -754,21 +754,21 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         console.log(`✅ 密码重置邮件已通过 SMTP 成功发送到 ${email}`)
       }
     } catch (emailError) {
-      console.error('❌ 发送密码重置邮件失败:', emailError)
-      console.error('错误代码:', emailError.code)
-      console.error('错误消息:', emailError.message)
+      console.error('❌ Password reset email failed:', emailError)
+      console.error('Error code:', emailError.code)
+      console.error('Error message:', emailError.message)
       if (emailError.response?.body) {
-        console.error('错误响应:', emailError.response.body)
+        console.error('Error response:', emailError.response.body)
       }
       
       // 提供更详细的错误信息
       let errorMessage = mailLanguage === 'zh' 
-        ? '发送密码重置邮件失败，请稍后重试' 
+        ? 'Failed to send password reset email. Please try again later.' 
         : 'Failed to send password reset email. Please try again later'
       
       if (emailError.code === 'EENVELOPE') {
         errorMessage = mailLanguage === 'zh' 
-          ? '发件人邮箱未验证，请联系管理员' 
+          ? 'Sender email not verified. Please contact the administrator.' 
           : 'Sender email not verified. Please contact administrator'
       } else if (emailError.response?.body?.errors) {
         errorMessage = emailError.response.body.errors[0]?.message || errorMessage
@@ -782,19 +782,18 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     res.json({ success: true, message: 'Password reset email sent' })
   } catch (error) {
-    console.error('❌ 发送密码重置邮件失败:', error)
-    console.error('错误详情:', error.message)
+    console.error('❌ Password reset email failed:', error)
+    console.error('Error details:', error.message)
     const mailLanguage = req.body?.language === 'zh' ? 'zh' : 'en'
     res.status(500).json({ 
       error: mailLanguage === 'zh' 
-        ? '发送密码重置邮件失败，请稍后重试' 
+        ? 'Failed to send password reset email. Please try again later.' 
         : 'Failed to send password reset email. Please try again later',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
   }
 })
 
-// 重置密码
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, token, newPassword } = req.body
@@ -2130,18 +2129,15 @@ app.post('/api/support/messages', authMiddleware, async (req, res) => {
       createdAt: newMsg.created_at,
     })
 
-    // 检测用户是否要求转接管理员
     const userMessageLower = newMsg.message.toLowerCase()
     const transferKeywords = [
-      '转接', '转人工', '转管理员', '真人', '人工服务', '人工客服',
       'transfer', 'human', 'agent', 'admin', 'manager', 'real person',
-      'speak to', 'talk to', 'connect me', 'hand me over'
+      'speak to', 'talk to', 'connect me', 'hand me over', 'support'
     ]
     const needsTransfer = transferKeywords.some(keyword => userMessageLower.includes(keyword))
     
     if (needsTransfer) {
       console.log(`🔄 User ${req.userId} requested transfer to admin`)
-      // 通知管理员用户要求转接
       wsBroadcastToAdmins({
         type: 'transfer_request',
         messageId: newMsg.id,
@@ -2852,7 +2848,7 @@ app.get('/api/admin/audit-logs', authMiddleware, adminMiddleware, async (req, re
 app.post('/api/enhance', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: '请上传图片文件' })
+      return res.status(400).json({ error: 'Please upload an image file' })
     }
 
     // 检查用户token（必须登录才能使用）
@@ -4703,7 +4699,6 @@ IMPORTANT RULES:
       parts: [{ text: h.content }]
     }))
 
-    // 如果用户要求转接，添加特殊提示
     const userMessageWithTransfer = needsTransfer 
       ? `${userMessage}\n\n[Note: The user has requested to speak with a human agent/admin. Acknowledge this request and let them know that an administrator will be notified and will respond soon.]`
       : userMessage

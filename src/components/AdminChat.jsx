@@ -23,7 +23,6 @@ export default function AdminChat() {
   const conversationsFetchedRef = useRef(false)
   const fetchingRef = useRef(false)
 
-  // 滚动到底部
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -34,10 +33,8 @@ export default function AdminChat() {
     }
   }, [messages, isOpen, isMinimized, selectedUserId])
 
-  // 获取对话列表
   const fetchConversations = async (silent = false) => {
     if (!user || !user.isAdmin) return
-    // 防止重复请求
     if (fetchingRef.current && !silent) return
     try {
       if (!silent) {
@@ -60,7 +57,6 @@ export default function AdminChat() {
     }
   }
 
-  // 获取指定用户的消息
   const fetchMessages = async (userId, silent = false) => {
     if (!userId) return
     try {
@@ -77,7 +73,6 @@ export default function AdminChat() {
     }
   }
 
-  // WebSocket 连接（只在打开聊天窗口时连接）
   useEffect(() => {
     if (!user || !user.isAdmin || !isOpen) {
       if (ws) {
@@ -90,7 +85,6 @@ export default function AdminChat() {
     const token = localStorage.getItem('glowlisting_token')
     if (!token) return
 
-    // 如果已经有连接，不重复创建
     if (ws && ws.readyState === WebSocket.OPEN) return
 
     try {
@@ -105,10 +99,8 @@ export default function AdminChat() {
         try {
           const data = JSON.parse(event.data)
           if (data.type === 'message_new' || data.type === 'message_reply') {
-            // 静默刷新对话列表（不显示 loading）
             fetchConversations(true)
             if (selectedUserId && (data.userId === selectedUserId || data.type === 'message_reply')) {
-              // 静默刷新消息（不显示 loading）
               fetchMessages(selectedUserId, true)
             }
           }
@@ -132,14 +124,12 @@ export default function AdminChat() {
     }
   }, [user, isOpen])
 
-  // 打开聊天窗口时获取对话列表（只获取一次）
   useEffect(() => {
     if (isOpen && user && user.isAdmin && !conversationsFetchedRef.current) {
       fetchConversations()
     }
   }, [isOpen, user])
   
-  // 关闭窗口时重置标志
   useEffect(() => {
     if (!isOpen) {
       conversationsFetchedRef.current = false
@@ -148,14 +138,12 @@ export default function AdminChat() {
     }
   }, [isOpen])
 
-  // 选择用户时获取消息
   useEffect(() => {
     if (selectedUserId) {
       fetchMessages(selectedUserId)
     }
   }, [selectedUserId])
 
-  // 发送消息
   const handleSend = async () => {
     if (!newMessage.trim() || sending || !selectedUserId) return
 
@@ -168,31 +156,28 @@ export default function AdminChat() {
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setNewMessage('')
-      // 静默刷新（不显示 loading）
       fetchMessages(selectedUserId, true)
       fetchConversations(true)
     } catch (err) {
       console.error('Send message failed:', err)
-      alert(err.response?.data?.error || '发送失败，请重试')
+      alert(err.response?.data?.error || 'Send failed, please try again')
     } finally {
       setSending(false)
     }
   }
 
-  // 格式化时间
   const formatTime = (dateStr) => {
     if (!dateStr) return ''
     const date = new Date(dateStr)
     const now = new Date()
     const diff = now - date
     const minutes = Math.floor(diff / 60000)
-    
-    if (minutes < 1) return t('chat.justNow') || '刚刚'
-    if (minutes < 60) return `${minutes}${t('chat.minutesAgo') || '分钟前'}`
+    if (minutes < 1) return t('chat.justNow') || 'Just now'
+    if (minutes < 60) return `${minutes} ${t('chat.minutesAgo') || 'min ago'}`
     if (date.toDateString() === now.toDateString()) {
-      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+      return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
     }
-    return date.toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
   const selectedConversation = conversations.find(c => c.user_id === selectedUserId)
@@ -201,7 +186,6 @@ export default function AdminChat() {
 
   return (
     <>
-      {/* 浮动按钮 */}
       {!isOpen && (
         <button
           onClick={() => {
@@ -215,14 +199,14 @@ export default function AdminChat() {
         </button>
       )}
 
-      {/* 聊天窗口 */}
+          {/* Chat window */}
       {isOpen && (
         <div
           className={`fixed bottom-6 right-6 z-50 w-[800px] max-w-[calc(100vw-3rem)] ${
             isMinimized ? 'h-16' : 'h-[700px]'
           } bg-gray-900 border border-gray-700 rounded-lg shadow-2xl flex transition-all duration-300`}
         >
-          {/* 左侧：对话列表 */}
+          {/* Left: conversation list */}
           {!isMinimized && (
             <div className="w-64 border-r border-gray-700 flex flex-col bg-gray-800">
               <div className="p-4 border-b border-gray-700">
@@ -267,9 +251,9 @@ export default function AdminChat() {
             </div>
           )}
 
-          {/* 右侧：消息区域 */}
+          {/* Right: messages */}
           <div className="flex-1 flex flex-col">
-            {/* 头部 */}
+            {/* Header */}
             <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-t-lg flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <MessageCircle className="h-5 w-5" />
@@ -304,7 +288,7 @@ export default function AdminChat() {
               <>
                 {selectedUserId ? (
                   <>
-                    {/* 消息列表 */}
+                    {/* Message list */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-900">
                       {messagesLoading && messages.length === 0 ? (
                         <div className="text-center text-gray-400 py-8">
@@ -339,7 +323,7 @@ export default function AdminChat() {
                       <div ref={messagesEndRef} />
                     </div>
 
-                    {/* 输入框 */}
+                    {/* Input */}
                     <div className="border-t border-gray-700 p-4 bg-gray-900">
                       <div className="flex space-x-2">
                         <textarea

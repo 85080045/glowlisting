@@ -21,7 +21,7 @@ export default function SupportChat() {
   const messagesFetchedRef = useRef(false)
   const fetchingRef = useRef(false)
 
-  // 滚动到底部
+  // Scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -32,10 +32,9 @@ export default function SupportChat() {
     }
   }, [messages, isOpen, isMinimized])
 
-  // 获取消息列表
+  // Fetch message list
   const fetchMessages = async (silent = false) => {
     if (!user) return
-    // 防止重复请求
     if (fetchingRef.current && !silent) return
     try {
       if (!silent) {
@@ -58,7 +57,7 @@ export default function SupportChat() {
     }
   }
 
-  // WebSocket 连接（只在打开聊天窗口时连接）
+  // WebSocket (only when chat is open)
   useEffect(() => {
     if (!user || !isOpen) {
       if (ws) {
@@ -71,7 +70,6 @@ export default function SupportChat() {
     const token = localStorage.getItem('glowlisting_token')
     if (!token) return
 
-    // 如果已经有连接，不重复创建
     if (ws && ws.readyState === WebSocket.OPEN) return
 
     try {
@@ -86,7 +84,6 @@ export default function SupportChat() {
         try {
           const data = JSON.parse(event.data)
           if (data.type === 'message_new' || data.type === 'message_reply') {
-            // 静默刷新消息（不显示 loading）
             fetchMessages(true)
           }
         } catch (e) {
@@ -109,14 +106,13 @@ export default function SupportChat() {
     }
   }, [user, isOpen])
 
-  // 打开聊天窗口时获取消息（只获取一次）
+  // Fetch messages when opening chat (once)
   useEffect(() => {
     if (isOpen && user && !messagesFetchedRef.current) {
       fetchMessages()
     }
   }, [isOpen, user])
   
-  // 关闭窗口时重置标志
   useEffect(() => {
     if (!isOpen) {
       messagesFetchedRef.current = false
@@ -124,7 +120,6 @@ export default function SupportChat() {
     }
   }, [isOpen])
 
-  // 发送消息
   const handleSend = async () => {
     if (!newMessage.trim() || sending || !user) return
 
@@ -137,37 +132,33 @@ export default function SupportChat() {
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setNewMessage('')
-      // 静默刷新（不显示 loading）
       fetchMessages(true)
     } catch (err) {
       console.error('Send message failed:', err)
-      alert(err.response?.data?.error || '发送失败，请重试')
+      alert(err.response?.data?.error || 'Send failed, please try again')
     } finally {
       setSending(false)
     }
   }
 
-  // 格式化时间
   const formatTime = (dateStr) => {
     if (!dateStr) return ''
     const date = new Date(dateStr)
     const now = new Date()
     const diff = now - date
     const minutes = Math.floor(diff / 60000)
-    
-    if (minutes < 1) return t('chat.justNow') || '刚刚'
-    if (minutes < 60) return `${minutes}${t('chat.minutesAgo') || '分钟前'}`
+    if (minutes < 1) return t('chat.justNow') || 'Just now'
+    if (minutes < 60) return `${minutes} ${t('chat.minutesAgo') || 'min ago'}`
     if (date.toDateString() === now.toDateString()) {
-      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+      return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
     }
-    return date.toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
   if (!user) return null
 
   return (
     <>
-      {/* 浮动按钮 */}
       {!isOpen && (
         <button
           onClick={() => {
@@ -181,7 +172,7 @@ export default function SupportChat() {
         </button>
       )}
 
-      {/* 聊天窗口 */}
+          {/* Chat window */}
       {isOpen && (
         <div
           ref={chatContainerRef}
@@ -189,7 +180,7 @@ export default function SupportChat() {
             isMinimized ? 'h-16' : 'h-[600px]'
           } bg-gray-900 border border-gray-700 rounded-lg shadow-2xl flex flex-col transition-all duration-300`}
         >
-          {/* 头部 */}
+          {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-4 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <MessageCircle className="h-5 w-5" />
@@ -215,7 +206,7 @@ export default function SupportChat() {
 
           {!isMinimized && (
             <>
-              {/* 消息列表 */}
+              {/* Message list */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-900">
                 {loading ? (
                   <div className="text-center text-gray-400 py-8">
@@ -252,7 +243,7 @@ export default function SupportChat() {
                 )}
               </div>
 
-              {/* 输入框 */}
+              {/* Input */}
               <div className="border-t border-gray-700 p-4 bg-gray-900">
                 <div className="flex space-x-2">
                   <textarea

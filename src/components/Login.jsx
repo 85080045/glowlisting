@@ -33,13 +33,9 @@ export default function Login() {
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
   const recaptchaRef = useRef(null)
 
-  // 错误信息映射函数，将后端错误转换为友好的提示
   const getFriendlyError = (errorMessage) => {
     if (!errorMessage) return t('auth.loginFailed')
-    
     const errorLower = errorMessage.toLowerCase()
-    
-    // 映射常见错误
     if (errorLower.includes('invalid credentials') || 
         errorLower.includes('email or password is incorrect') ||
         errorLower.includes('incorrect')) {
@@ -61,12 +57,9 @@ export default function Login() {
       return t('auth.verificationCodeRequired')
     }
     
-    // 如果是401错误，统一显示为凭据错误
     if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
       return t('auth.invalidCredentials')
     }
-    
-    // 其他错误直接显示，但确保是友好的
     return errorMessage
   }
 
@@ -76,7 +69,6 @@ export default function Login() {
     setLoading(true)
 
     if (!isLogin) {
-      // 注册验证
       if (!formData.name || !formData.email || !formData.password) {
         setError(t('auth.fillAllFields'))
         setLoading(false)
@@ -87,7 +79,6 @@ export default function Login() {
         setLoading(false)
         return
       }
-      // 密码验证：8位以上，至少一个大写字母和一个符号
       if (formData.password.length < 8) {
         setError(t('auth.passwordTooShort'))
         setLoading(false)
@@ -103,20 +94,17 @@ export default function Login() {
         setLoading(false)
         return
       }
-      // 检查验证码
       if (!formData.verificationCode) {
         setError(t('auth.verificationCodeRequired'))
         setLoading(false)
         return
       }
-      // 检查 reCAPTCHA
       if (!recaptchaToken) {
         setError(t('auth.recaptchaRequired'))
         setLoading(false)
         return
       }
     } else {
-      // 登录验证
       if (!formData.email || !formData.password) {
         setError(t('auth.fillAllFields'))
         setLoading(false)
@@ -138,7 +126,6 @@ export default function Login() {
         } else {
           trackEvent('login_success', { email: formData.email })
         }
-        // 检查是否有重定向
         const redirect = searchParams.get('redirect')
         if (redirect === 'upload') {
           navigate('/')
@@ -146,11 +133,9 @@ export default function Login() {
           navigate('/dashboard')
         }
       } else {
-        // 使用友好的错误信息映射
         setError(getFriendlyError(result.error))
       }
     } catch (err) {
-      // 使用友好的错误信息映射
       const errorMsg = err.response?.data?.error || err.message
       setError(getFriendlyError(errorMsg))
     } finally {
@@ -158,7 +143,6 @@ export default function Login() {
     }
   }
 
-  // 检查是否有重定向参数
   useEffect(() => {
     const redirect = searchParams.get('redirect')
     if (redirect === 'upload') {
@@ -166,12 +150,10 @@ export default function Login() {
     }
   }, [searchParams, t])
 
-  // 加载 reCAPTCHA 脚本
   useEffect(() => {
     if (!isLogin) {
       const loadRecaptcha = () => {
         if (window.grecaptcha && recaptchaRef.current) {
-          // 检查是否已经渲染过
           const widgetId = recaptchaRef.current.getAttribute('data-widget-id')
           if (!widgetId) {
             try {
@@ -197,11 +179,9 @@ export default function Login() {
         }
       }
 
-      // 如果 grecaptcha 已经加载，直接渲染
       if (window.grecaptcha) {
         loadRecaptcha()
       } else {
-        // 等待 reCAPTCHA 脚本加载
         const checkInterval = setInterval(() => {
           if (window.grecaptcha) {
             clearInterval(checkInterval)
@@ -209,13 +189,11 @@ export default function Login() {
           }
         }, 100)
 
-        // 10秒后停止检查
         setTimeout(() => clearInterval(checkInterval), 10000)
       }
     }
   }, [isLogin])
 
-  // 重置 reCAPTCHA 当切换登录/注册模式
   useEffect(() => {
     if (isLogin) {
       setRecaptchaToken(null)
@@ -232,7 +210,6 @@ export default function Login() {
     }
   }, [isLogin])
 
-  // 验证码倒计时
   useEffect(() => {
     if (codeCountdown > 0) {
       const timer = setTimeout(() => setCodeCountdown(codeCountdown - 1), 1000)
@@ -246,7 +223,6 @@ export default function Login() {
       return
     }
 
-    // 验证邮箱格式
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(formData.email)) {
       setError(t('auth.invalidEmail'))
@@ -259,12 +235,12 @@ export default function Login() {
     try {
       const response = await axios.post(`${API_URL}/auth/send-verification`, {
         email: formData.email,
-        language: language, // 传递当前语言
+        language: language,
       })
 
       if (response.data.success) {
         setVerificationSent(true)
-        setCodeCountdown(60) // 60秒倒计时
+        setCodeCountdown(60)
       } else {
         setError(response.data.error || t('auth.sendCodeFailed'))
       }
@@ -276,12 +252,10 @@ export default function Login() {
   }
 
   const handleGoogleLogin = () => {
-    // TODO: 实现Google登录
     setError(t('auth.googleLoginComingSoon'))
   }
 
   const handleFacebookLogin = () => {
-    // TODO: 实现Facebook登录
     setError(t('auth.facebookLoginComingSoon'))
   }
 
@@ -332,7 +306,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex flex-col">
-      {/* 顶部导航栏 */}
       <div className="w-full py-4 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex justify-center">
           <Link 
@@ -349,7 +322,6 @@ export default function Login() {
         </div>
       </div>
       
-      {/* 登录表单区域 */}
       <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
         <div className="text-center">
@@ -447,7 +419,6 @@ export default function Login() {
           </div>
         ) : (
         <div className="glass-dark rounded-2xl p-8 relative">
-          {/* Google 和 Facebook 登录按钮 */}
           <div className="space-y-3 mb-6">
             <button
               type="button"
@@ -575,7 +546,6 @@ export default function Login() {
                   </div>
                 </div>
 
-                {/* 邮箱验证码 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     {t('auth.verificationCode')}

@@ -38,7 +38,6 @@ export default function ResetPassword() {
     setError('')
     setLoading(true)
 
-    // 验证密码
     if (formData.password.length < 8) {
       setError(t('auth.passwordTooShort'))
       setLoading(false)
@@ -213,5 +212,7 @@ export default function ResetPassword() {
     </div>
   )
 }
+
+
 
 

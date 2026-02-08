@@ -1,77 +1,70 @@
-# 快速开始指南
+# Quick Start Guide
 
-## 🚀 5 分钟快速启动
+## 5-minute setup
 
-### 步骤 1: 安装依赖
+### Step 1: Install dependencies
 
 ```bash
-# 安装前端依赖
 npm install
-
-# 安装后端依赖
 cd server
 npm install
 cd ..
 ```
 
-### 步骤 2: 启动服务
+### Step 2: Start services
 
-**打开两个终端窗口：**
+Use two terminal windows.
 
-**终端 1 - 启动前端：**
+**Terminal 1 – frontend:**
 ```bash
 npm run dev
 ```
 
-**终端 2 - 启动后端：**
+**Terminal 2 – backend:**
 ```bash
 cd server
 npm run dev
 ```
 
-### 步骤 3: 访问应用
+### Step 3: Open the app
 
-打开浏览器访问：http://localhost:3000
+Visit: http://localhost:3000
 
-## 🔑 配置 API Key（可选）
+## API key (optional)
 
-如果您想使用真实的图片增强功能，需要配置 API key：
+To use real image enhancement (not demo mode):
 
-1. 注册 [autoenhance.ai](https://autoenhance.ai) 获取 API key
-2. 创建 `server/.env` 文件：
+1. Sign up at [autoenhance.ai](https://autoenhance.ai) and get an API key.
+2. Create `server/.env`:
    ```env
    AUTOENHANCE_API_KEY=your_api_key_here
    AUTOENHANCE_API_URL=https://api.autoenhance.ai/v1/enhance
    PORT=3001
    ```
-3. 重启后端服务器
+3. Restart the backend.
 
-**注意：** 如果不配置 API key，系统会返回原始图片（仅用于演示）。
+Without an API key, the app returns the original image (demo only).
 
-## 📱 使用说明
+## Usage
 
-1. **上传照片**：点击上传区域，选择或拖拽照片
-2. **AI 增强**：点击"开始 AI 增强"按钮
-3. **下载结果**：增强完成后，点击"下载增强照片"
+1. **Upload** – Click or drag photos into the upload area.
+2. **Enhance** – Click “Enhance” (or equivalent) to run AI enhancement.
+3. **Download** – When done, download the enhanced photo.
 
-## 🛠️ 故障排除
+## Troubleshooting
 
-### 端口被占用
-如果 3000 或 3001 端口被占用，可以修改：
-- 前端端口：修改 `vite.config.js` 中的 `port`
-- 后端端口：修改 `server/.env` 中的 `PORT`
+### Port in use
+Change ports if needed:
+- Frontend: `port` in `vite.config.js`
+- Backend: `PORT` in `server/.env`
 
-### API 连接失败
-- 检查后端服务是否正常运行
-- 检查 `VITE_ENHANCE_API_URL` 环境变量是否正确
-- 查看浏览器控制台和服务器日志
+### API connection fails
+- Ensure the backend is running.
+- Check `VITE_ENHANCE_API_URL` in the frontend env.
+- Check browser console and server logs.
 
-### 图片上传失败
-- 确保图片大小不超过 10MB
-- 确保图片格式为 JPG 或 PNG
+### Upload fails
+- Keep images under 10MB.
+- Use JPG or PNG.
 
-## 📚 更多信息
-
-查看 [README.md](./README.md) 获取完整文档。
-
-
+For more detail, see [README.md](./README.md).

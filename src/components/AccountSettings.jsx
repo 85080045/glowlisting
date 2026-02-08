@@ -164,7 +164,7 @@ export default function AccountSettings() {
 
         <h1 className="text-3xl font-bold text-white mb-8">{t('settings.title')}</h1>
 
-        {/* 个人信息 */}
+        {/* Profile */}
         <div className="glass-dark rounded-xl p-6 mb-6">
           <h2 className="text-xl font-semibold text-white mb-4 flex items-center space-x-2">
             <User className="h-5 w-5" />
@@ -225,7 +225,7 @@ export default function AccountSettings() {
           </form>
         </div>
 
-        {/* 修改密码 */}
+        {/* Change password */}
         <div className="glass-dark rounded-xl p-6">
           <h2 className="text-xl font-semibold text-white mb-4 flex items-center space-x-2">
             <Lock className="h-5 w-5" />
@@ -306,5 +306,7 @@ export default function AccountSettings() {
     </div>
   )
 }
+
+
 
 

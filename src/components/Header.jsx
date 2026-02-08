@@ -16,11 +16,10 @@ export default function Header() {
   const userMenuRef = useRef(null)
   const location = useLocation()
 
-  // 滚动到指定section的函数，考虑header高度
   const scrollToSection = (sectionId) => {
     const element = document.getElementById(sectionId)
     if (element) {
-      const headerHeight = 64 // header高度是h-16，即64px（包含顶部padding）
+      const headerHeight = 64
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
       const offsetPosition = elementPosition - headerHeight
 
@@ -31,19 +30,14 @@ export default function Header() {
     }
   }
 
-  // 滚动时隐藏/显示 header
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY
-      
       if (currentScrollY < 10) {
-        // 在顶部时始终显示
         setIsVisible(true)
       } else if (currentScrollY > lastScrollY && currentScrollY > 80) {
-        // 向下滚动且超过 80px 时隐藏
         setIsVisible(false)
       } else if (currentScrollY < lastScrollY) {
-        // 向上滚动时显示
         setIsVisible(true)
       }
       
@@ -54,7 +48,6 @@ export default function Header() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [lastScrollY])
 
-  // 点击外部关闭用户菜单
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
@@ -159,7 +152,7 @@ export default function Header() {
             
             {user ? (
               <div className="flex items-center space-x-4">
-                {/* 用户菜单 */}
+                {/* User menu */}
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}

@@ -29,3 +29,5 @@ ALTER TABLE revenue
 CREATE INDEX IF NOT EXISTS idx_revenue_payment_intent ON revenue(stripe_payment_intent_id);
 CREATE INDEX IF NOT EXISTS idx_revenue_created_at ON revenue(created_at DESC);
 
+
+
