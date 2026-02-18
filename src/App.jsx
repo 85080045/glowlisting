@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { trackPageView } from './utils/analytics'
 import { useAuth } from './contexts/AuthContext'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 // 滚动到顶部组件
 function ScrollToTop() {
@@ -150,6 +151,7 @@ function App() {
     <LanguageProvider>
       <AuthProvider>
         <AppContent />
+        <SpeedInsights />
       </AuthProvider>
     </LanguageProvider>
   )
