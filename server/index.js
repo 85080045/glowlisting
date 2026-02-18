@@ -12,7 +12,6 @@ import crypto from 'crypto'
 import dotenv from 'dotenv'
 import nodemailer from 'nodemailer'
 import Stripe from 'stripe'
-import sgMail from '@sendgrid/mail'
 import bcrypt from 'bcryptjs'
 import { query } from './db/client.js'
 import geoip from 'geoip-lite'
@@ -256,26 +255,21 @@ app.post('/api/auth/send-verification', async (req, res) => {
     // 存储验证码
     verificationCodes.set(email, { code, expiresAt })
 
-    // 发送邮件 - 优先使用 SendGrid API（Render 免费服务不支持 SMTP 端口）
-    const sendGridApiKey = process.env.SENDGRID_API_KEY
-    const sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || 'hello@glowlisting.ai'
+    // 使用 SMTP 发邮件（不依赖 SendGrid）
     const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
-    
-    // 备选：SMTP 配置（仅当升级到付费服务时可用）
     const smtpHost = process.env.SMTP_HOST
     const smtpPort = process.env.SMTP_PORT
     const smtpUser = process.env.SMTP_USER
     const smtpPass = process.env.SMTP_PASS
     const smtpSecure = process.env.SMTP_SECURE === 'true'
 
-    // 检查是否有可用的邮件服务配置
-    if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
-      console.error('❌ Mail service not configured')
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      console.error('❌ Mail service not configured (set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)')
       console.log(`⚠️ Verification code (test only): ${code} (valid 10 min)`)
       return res.status(500).json({ 
         error: mailLanguage === 'zh' 
           ? 'Mail service not configured. Please contact the administrator.' 
-          : 'Email service not configured. Please contact administrator'
+          : 'Email service not configured. Please set SMTP env vars.'
       })
     }
 
@@ -323,56 +317,29 @@ app.post('/api/auth/send-verification', async (req, res) => {
     }
 
     try {
-      // 优先使用 SendGrid API（推荐，适用于 Render 免费服务）
-      if (sendGridApiKey) {
-        sgMail.setApiKey(sendGridApiKey)
-        
-        const msg = {
-          to: email,
-          from: {
-            email: sendGridFromEmail,
-            name: fromName,
-          },
-          subject: subject,
-          text: textContent,
-          html: htmlContent,
-        }
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort),
+        secure: smtpSecure,
+        requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
+        auth: { user: smtpUser, pass: smtpPass },
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 60000,
+        tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
+        debug: process.env.NODE_ENV === 'development',
+        logger: process.env.NODE_ENV === 'development',
+      })
 
-        await sgMail.send(msg)
-        console.log(`✅ Verification email sent via SendGrid to ${email}`)
-      } 
-      // 备选：使用 SMTP（仅当升级到付费服务时可用）
-      else if (smtpHost && smtpPort && smtpUser && smtpPass) {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: parseInt(smtpPort),
-          secure: smtpSecure, // true for 465, false for other ports
-          requireTLS: !smtpSecure && parseInt(smtpPort) === 587, // 对于587端口使用STARTTLS
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-          connectionTimeout: 30000, // 30秒连接超时
-          greetingTimeout: 30000, // 30秒问候超时
-          socketTimeout: 60000, // 60秒socket超时
-          tls: {
-            rejectUnauthorized: false, // 允许自签名证书（仅用于测试）
-            minVersion: 'TLSv1.2', // 使用 TLS 1.2 或更高版本
-          },
-          debug: process.env.NODE_ENV === 'development',
-          logger: process.env.NODE_ENV === 'development',
-        })
+      await transporter.sendMail({
+        from: `"${fromName}" <${smtpUser}>`,
+        to: email,
+        subject: subject,
+        html: htmlContent,
+        text: textContent,
+      })
 
-        await transporter.sendMail({
-          from: `"${fromName}" <${smtpUser}>`,
-          to: email,
-          subject: subject,
-          html: htmlContent,
-          text: textContent,
-        })
-
-        console.log(`✅ Verification email sent via SMTP to ${email}`)
-      }
+      console.log(`✅ Verification email sent via SMTP to ${email}`)
     } catch (emailError) {
       console.error('❌ Send mail failed:', emailError)
       console.error('Error code:', emailError.code)
@@ -616,46 +583,36 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     // 即使用户不存在，也返回成功（防止邮箱枚举攻击）
     // 但只有在邮件服务配置正确的情况下才返回成功
     if (!user) {
-      // 检查邮件服务是否配置
-      const sendGridApiKey = process.env.SENDGRID_API_KEY
       const smtpHost = process.env.SMTP_HOST
       const smtpPort = process.env.SMTP_PORT
       const smtpUser = process.env.SMTP_USER
       const smtpPass = process.env.SMTP_PASS
-      
-      if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
+      if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
         return res.status(500).json({ 
           error: mailLanguage === 'zh' 
             ? 'Mail service not configured. Please contact the administrator.' 
-            : 'Email service not configured. Please contact administrator'
+            : 'Email service not configured. Please set SMTP env vars.'
         })
       }
-      
       return res.json({ success: true, message: 'If the email exists, a password reset link has been sent' })
     }
 
     // 生成重置token
     const resetToken = generatePasswordResetToken(email)
 
-    // 发送重置邮件 - 使用与注册验证码相同的逻辑
-    const sendGridApiKey = process.env.SENDGRID_API_KEY
-    const sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || 'hello@glowlisting.ai'
     const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
-    
-    // 备选：SMTP 配置（仅当升级到付费服务时可用）
     const smtpHost = process.env.SMTP_HOST
     const smtpPort = process.env.SMTP_PORT
     const smtpUser = process.env.SMTP_USER
     const smtpPass = process.env.SMTP_PASS
     const smtpSecure = process.env.SMTP_SECURE === 'true'
 
-    // 检查是否有可用的邮件服务配置
-    if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
-      console.error('❌ Mail service not configured')
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      console.error('❌ Mail service not configured (set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)')
       return res.status(500).json({ 
         error: mailLanguage === 'zh' 
           ? 'Mail service not configured. Please contact the administrator.' 
-          : 'Email service not configured. Please contact administrator'
+          : 'Email service not configured. Please set SMTP env vars.'
       })
     }
 
@@ -709,56 +666,29 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 
     try {
-      // 优先使用 SendGrid API（推荐，适用于 Render 免费服务）
-      if (sendGridApiKey) {
-        sgMail.setApiKey(sendGridApiKey)
-        
-        const msg = {
-          to: email,
-          from: {
-            email: sendGridFromEmail,
-            name: fromName,
-          },
-          subject: subject,
-          text: textContent,
-          html: htmlContent,
-        }
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort),
+        secure: smtpSecure,
+        requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
+        auth: { user: smtpUser, pass: smtpPass },
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 60000,
+        tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
+        debug: process.env.NODE_ENV === 'development',
+        logger: process.env.NODE_ENV === 'development',
+      })
 
-        await sgMail.send(msg)
-        console.log(`✅ 密码重置邮件已通过 SendGrid 成功发送到 ${email}`)
-      } 
-      // 备选：使用 SMTP（仅当升级到付费服务时可用）
-      else if (smtpHost && smtpPort && smtpUser && smtpPass) {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: parseInt(smtpPort),
-          secure: smtpSecure,
-          requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-          connectionTimeout: 30000,
-          greetingTimeout: 30000,
-          socketTimeout: 60000,
-          tls: {
-            rejectUnauthorized: false,
-            minVersion: 'TLSv1.2',
-          },
-          debug: process.env.NODE_ENV === 'development',
-          logger: process.env.NODE_ENV === 'development',
-        })
+      await transporter.sendMail({
+        from: `"${fromName}" <${smtpUser}>`,
+        to: email,
+        subject: subject,
+        html: htmlContent,
+        text: textContent,
+      })
 
-        await transporter.sendMail({
-          from: `"${fromName}" <${smtpUser}>`,
-          to: email,
-          subject: subject,
-          html: htmlContent,
-          text: textContent,
-        })
-
-        console.log(`✅ 密码重置邮件已通过 SMTP 成功发送到 ${email}`)
-      }
+      console.log(`✅ Password reset email sent via SMTP to ${email}`)
     } catch (emailError) {
       console.error('❌ Password reset email failed:', emailError)
       console.error('Error code:', emailError.code)
@@ -4332,18 +4262,15 @@ app.post('/api/test-email', async (req, res) => {
       return res.status(400).json({ error: 'Email address is required' })
     }
 
-    const sendGridApiKey = process.env.SENDGRID_API_KEY
-    const sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || 'hello@glowlisting.ai'
     const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
-    
     const smtpHost = process.env.SMTP_HOST
     const smtpPort = process.env.SMTP_PORT
     const smtpUser = process.env.SMTP_USER
     const smtpPass = process.env.SMTP_PASS
     const smtpSecure = process.env.SMTP_SECURE === 'true'
 
-    if (!sendGridApiKey && (!smtpHost || !smtpPort || !smtpUser || !smtpPass)) {
-      return res.status(500).json({ error: 'Email service configuration is incomplete' })
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      return res.status(500).json({ error: 'Email service not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.' })
     }
 
     const testCode = '123456' // 测试验证码
@@ -4398,57 +4325,29 @@ app.post('/api/test-email', async (req, res) => {
     console.log(`📧 邮件主题: ${subject}`)
     console.log(`📧 邮件语言: ${mailLanguage}`)
     
-    // 优先使用 SendGrid API
-    if (sendGridApiKey) {
-      sgMail.setApiKey(sendGridApiKey)
-      
-      const msg = {
-        to: to,
-        from: {
-          email: sendGridFromEmail,
-          name: fromName,
-        },
-        subject: subject,
-        text: textContent,
-        html: htmlContent,
-      }
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: parseInt(smtpPort),
+      secure: smtpSecure,
+      requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
+      auth: { user: smtpUser, pass: smtpPass },
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000,
+      tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
+      debug: process.env.NODE_ENV === 'development',
+      logger: process.env.NODE_ENV === 'development',
+    })
 
-      await sgMail.send(msg)
-      console.log(`✅ 测试邮件已通过 SendGrid 成功发送到 ${to} (${mailLanguage === 'zh' ? '中文' : '英文'})`)
-    } 
-    // 备选：使用 SMTP
-    else if (smtpHost && smtpPort && smtpUser && smtpPass) {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: parseInt(smtpPort),
-        secure: smtpSecure,
-        requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-        connectionTimeout: 30000,
-        greetingTimeout: 30000,
-        socketTimeout: 60000,
-        tls: {
-          rejectUnauthorized: false,
-          minVersion: 'TLSv1.2',
-        },
-        debug: process.env.NODE_ENV === 'development',
-        logger: process.env.NODE_ENV === 'development',
-      })
+    await transporter.sendMail({
+      from: `"${fromName}" <${smtpUser}>`,
+      to: to,
+      subject: subject,
+      html: htmlContent,
+      text: textContent,
+    })
 
-      await transporter.sendMail({
-        from: `"${fromName}" <${smtpUser}>`,
-        to: to,
-        subject: subject,
-        html: htmlContent,
-        text: textContent,
-      })
-
-      console.log(`✅ 测试邮件已通过 SMTP 成功发送到 ${to} (${mailLanguage === 'zh' ? '中文' : '英文'})`)
-    }
-
+    console.log(`✅ Test email sent via SMTP to ${to}`)
     res.json({
       success: true,
       message: `Test email sent successfully to ${to}`,
