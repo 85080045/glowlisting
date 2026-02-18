@@ -287,10 +287,16 @@ export default function Login() {
       if (response.data.success) {
         setForgotPasswordSent(true)
       } else {
-        setError(response.data.error || t('auth.forgotPasswordFailed'))
+        const msg = response.data.error || t('auth.forgotPasswordFailed')
+        setError(/maximum credits exceeded|credits exceeded|quota exceeded/i.test(msg)
+          ? (language === 'zh' ? '邮件发送额度已用尽，请稍后再试或联系管理员。' : 'Email sending limit reached. Please try again later or contact support.')
+          : msg)
       }
     } catch (err) {
-      setError(err.response?.data?.error || t('auth.forgotPasswordFailed'))
+      const msg = err.response?.data?.error || t('auth.forgotPasswordFailed')
+      setError(/maximum credits exceeded|credits exceeded|quota exceeded/i.test(msg)
+        ? (language === 'zh' ? '邮件发送额度已用尽，请稍后再试或联系管理员。' : 'Email sending limit reached. Please try again later or contact support.')
+        : msg)
     } finally {
       setLoading(false)
     }

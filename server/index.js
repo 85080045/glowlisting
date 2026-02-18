@@ -385,7 +385,8 @@ app.post('/api/auth/send-verification', async (req, res) => {
       })
       
       let errorMessage
-      const apiMsg = emailError.response?.body?.errors?.[0]?.message || emailError.message || ''
+      const apiMsg = (emailError.response?.body?.errors?.[0]?.message || emailError.message || '').toString()
+      const isCreditsExceeded = /maximum credits exceeded|over quota|quota exceeded|credits exceeded/i.test(apiMsg)
       if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
         errorMessage = mailLanguage === 'zh'
           ? 'Cannot connect to mail server. Check SMTP config or network.'
@@ -394,7 +395,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
         errorMessage = mailLanguage === 'zh'
           ? 'Mail auth failed. Check username and password.'
           : 'Email authentication failed. Please check username and password'
-      } else if (/maximum credits exceeded|over quota|quota exceeded/i.test(apiMsg)) {
+      } else if (isCreditsExceeded) {
         errorMessage = mailLanguage === 'zh'
           ? '邮件发送额度已用尽，请稍后再试或联系管理员。'
           : 'Email sending limit reached. Please try again later or contact support.'
@@ -771,20 +772,21 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         ? 'Failed to send password reset email. Please try again later.' 
         : 'Failed to send password reset email. Please try again later'
       
+      const apiMsg = (emailError.response?.body?.errors?.[0]?.message || emailError.message || '').toString()
+      const isCreditsExceeded = /maximum credits exceeded|over quota|quota exceeded|credits exceeded/i.test(apiMsg)
+
       if (emailError.code === 'EENVELOPE') {
         errorMessage = mailLanguage === 'zh' 
           ? 'Sender email not verified. Please contact the administrator.' 
           : 'Sender email not verified. Please contact administrator'
-      } else if (emailError.response?.body?.errors) {
-        const apiMsg = emailError.response.body.errors[0]?.message || ''
-        // SendGrid free tier limit: show friendly message instead of "Maximum credits exceeded"
-        if (/maximum credits exceeded|over quota|quota exceeded/i.test(apiMsg)) {
-          errorMessage = mailLanguage === 'zh'
-            ? '邮件发送额度已用尽，请稍后再试或联系管理员。'
-            : 'Email sending limit reached. Please try again later or contact support.'
-        } else {
-          errorMessage = apiMsg || errorMessage
-        }
+      } else if (isCreditsExceeded) {
+        errorMessage = mailLanguage === 'zh'
+          ? '邮件发送额度已用尽，请稍后再试或联系管理员。'
+          : 'Email sending limit reached. Please try again later or contact support.'
+      } else if (emailError.response?.body?.errors?.[0]?.message) {
+        errorMessage = emailError.response.body.errors[0].message
+      } else if (apiMsg) {
+        errorMessage = apiMsg
       }
       
       return res.status(500).json({ 
