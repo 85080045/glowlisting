@@ -384,8 +384,8 @@ app.post('/api/auth/send-verification', async (req, res) => {
         user: smtpUser,
       })
       
-      // 根据错误类型返回更具体的错误信息
       let errorMessage
+      const apiMsg = emailError.response?.body?.errors?.[0]?.message || emailError.message || ''
       if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
         errorMessage = mailLanguage === 'zh'
           ? 'Cannot connect to mail server. Check SMTP config or network.'
@@ -394,10 +394,14 @@ app.post('/api/auth/send-verification', async (req, res) => {
         errorMessage = mailLanguage === 'zh'
           ? 'Mail auth failed. Check username and password.'
           : 'Email authentication failed. Please check username and password'
+      } else if (/maximum credits exceeded|over quota|quota exceeded/i.test(apiMsg)) {
+        errorMessage = mailLanguage === 'zh'
+          ? '邮件发送额度已用尽，请稍后再试或联系管理员。'
+          : 'Email sending limit reached. Please try again later or contact support.'
       } else {
         errorMessage = mailLanguage === 'zh'
-          ? `Send mail failed: ${emailError.message || 'Unknown error'}`
-          : `Failed to send email: ${emailError.message || 'Unknown error'}`
+          ? `Send mail failed: ${apiMsg || 'Unknown error'}`
+          : `Failed to send email: ${apiMsg || 'Unknown error'}`
       }
       
       return res.status(500).json({ error: errorMessage })
@@ -772,7 +776,15 @@ app.post('/api/auth/forgot-password', async (req, res) => {
           ? 'Sender email not verified. Please contact the administrator.' 
           : 'Sender email not verified. Please contact administrator'
       } else if (emailError.response?.body?.errors) {
-        errorMessage = emailError.response.body.errors[0]?.message || errorMessage
+        const apiMsg = emailError.response.body.errors[0]?.message || ''
+        // SendGrid free tier limit: show friendly message instead of "Maximum credits exceeded"
+        if (/maximum credits exceeded|over quota|quota exceeded/i.test(apiMsg)) {
+          errorMessage = mailLanguage === 'zh'
+            ? '邮件发送额度已用尽，请稍后再试或联系管理员。'
+            : 'Email sending limit reached. Please try again later or contact support.'
+        } else {
+          errorMessage = apiMsg || errorMessage
+        }
       }
       
       return res.status(500).json({ 
