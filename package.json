@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google-cloud/vertexai": "^1.10.0",
     "axios": "^1.6.0",
     "framer-motion": "^12.23.25",
     "heic2any": "^0.0.4",

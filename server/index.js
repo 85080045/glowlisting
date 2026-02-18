@@ -18,6 +18,7 @@ import { query } from './db/client.js'
 import geoip from 'geoip-lite'
 import { WebSocketServer } from 'ws'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleAuth } from 'google-auth-library'
 
 // 加载环境变量
 dotenv.config()
@@ -2836,6 +2837,133 @@ app.get('/api/admin/audit-logs', authMiddleware, adminMiddleware, async (req, re
     res.json({ success: true, logs: result.rows, total })
   } catch (error) {
     res.status(500).json({ error: error.message })
+  }
+})
+
+// ==================== Vertex AI Imagen (text-to-image) ====================
+
+const IMAGEN_MODEL = 'imagen-3.0-capability-001'
+const GOOGLE_CLOUD_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
+
+app.post('/api/generate', authMiddleware, async (req, res) => {
+  try {
+    const { prompt } = req.body || {}
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Prompt is required. Send a JSON body with { "prompt": "your description" }.',
+      })
+    }
+
+    const projectId = process.env.GOOGLE_PROJECT_ID
+    const clientEmail = process.env.GOOGLE_CLIENT_EMAIL
+    let privateKey = process.env.GOOGLE_PRIVATE_KEY
+
+    if (!projectId || !clientEmail || !privateKey) {
+      console.warn('[Generate] Missing Vertex AI env: GOOGLE_PROJECT_ID, GOOGLE_CLIENT_EMAIL, or GOOGLE_PRIVATE_KEY')
+      return res.status(503).json({
+        success: false,
+        error: 'Image generation is not configured. Please contact support.',
+      })
+    }
+
+    // Fix escaped newlines in private key (e.g. from Render env)
+    privateKey = privateKey.replace(/\\n/g, '\n')
+
+    const auth = new GoogleAuth({
+      credentials: {
+        client_email: clientEmail,
+        private_key: privateKey,
+      },
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+    })
+    const client = await auth.getClient()
+    const tokenResponse = await client.getAccessToken()
+    const accessToken = tokenResponse.token
+    if (!accessToken) {
+      throw new Error('Failed to obtain access token')
+    }
+
+    const predictUrl = `https://${GOOGLE_CLOUD_LOCATION}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${GOOGLE_CLOUD_LOCATION}/publishers/google/models/${IMAGEN_MODEL}:predict`
+    const payload = {
+      instances: [{ prompt: prompt.trim() }],
+      parameters: {
+        sampleCount: 1,
+        aspectRatio: '1:1',
+      },
+    }
+
+    const response = await axios.post(predictUrl, payload, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 120000,
+      validateStatus: (status) => status < 500,
+    })
+
+    if (response.status !== 200) {
+      const errMsg = response.data?.error?.message || response.data?.message || response.statusText
+      console.error('[Generate] Vertex AI error:', response.status, errMsg)
+      const friendly =
+        response.status === 403
+          ? 'Image generation is not available for this project or region.'
+          : response.status === 429
+            ? 'Too many requests. Please try again in a moment.'
+            : 'Image generation failed. Please try again or use a different prompt.'
+      return res.status(response.status >= 400 ? response.status : 500).json({
+        success: false,
+        error: friendly,
+      })
+    }
+
+    const predictions = response.data?.predictions
+    if (!Array.isArray(predictions) || predictions.length === 0) {
+      const raw = response.data?.predictions ?? response.data
+      console.error('[Generate] No predictions in response:', typeof raw)
+      return res.status(502).json({
+        success: false,
+        error: 'No image was generated. Try a different prompt.',
+      })
+    }
+
+    const first = predictions[0]
+    const imageBase64 = first?.bytesBase64Encoded
+    const mimeType = first?.mimeType || 'image/png'
+
+    if (!imageBase64) {
+      return res.status(502).json({
+        success: false,
+        error: 'Image data was not returned. Try again or use a different prompt.',
+      })
+    }
+
+    res.json({
+      success: true,
+      imageBase64,
+      mimeType,
+    })
+  } catch (err) {
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message
+      console.error('[Generate] Request failed:', status, msg)
+      const friendly =
+        status === 401 || status === 403
+          ? 'Image generation is not configured or not allowed.'
+          : status === 429
+            ? 'Too many requests. Please try again later.'
+            : 'Image generation failed. Please try again.'
+      return res.status(status && status >= 400 ? status : 500).json({
+        success: false,
+        error: friendly,
+      })
+    }
+    console.error('[Generate] Error:', err.message)
+    res.status(500).json({
+      success: false,
+      error: err.message || 'Image generation failed. Please try again.',
+    })
   }
 })
 
