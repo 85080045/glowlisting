@@ -323,7 +323,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
         secure: smtpSecure,
         requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
         auth: { user: smtpUser, pass: smtpPass },
-        connectionTimeout: 30000,
+        connectionTimeout: 45000,
         greetingTimeout: 30000,
         socketTimeout: 60000,
         tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
@@ -354,10 +354,10 @@ app.post('/api/auth/send-verification', async (req, res) => {
       let errorMessage
       const apiMsg = (emailError.response?.body?.errors?.[0]?.message || emailError.message || '').toString()
       const isCreditsExceeded = /maximum credits exceeded|over quota|quota exceeded|credits exceeded/i.test(apiMsg)
-      if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED') {
+      if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED' || /connection timeout|timed out/i.test(apiMsg)) {
         errorMessage = mailLanguage === 'zh'
-          ? 'Cannot connect to mail server. Check SMTP config or network.'
-          : 'Cannot connect to email server. Please check SMTP configuration or network connection'
+          ? '无法连接邮件服务器（超时）。请检查 SMTP 地址与端口，或尝试使用 587 端口。'
+          : 'Cannot connect to mail server (timeout). Check SMTP host/port or try port 587.'
       } else if (emailError.code === 'EAUTH') {
         errorMessage = mailLanguage === 'zh'
           ? 'Mail auth failed. Check username and password.'
@@ -672,7 +672,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         secure: smtpSecure,
         requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
         auth: { user: smtpUser, pass: smtpPass },
-        connectionTimeout: 30000,
+        connectionTimeout: 45000,
         greetingTimeout: 30000,
         socketTimeout: 60000,
         tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
@@ -704,11 +704,17 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       
       const apiMsg = (emailError.response?.body?.errors?.[0]?.message || emailError.message || '').toString()
       const isCreditsExceeded = /maximum credits exceeded|over quota|quota exceeded|credits exceeded/i.test(apiMsg)
+      const isConnectionTimeout = emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED' ||
+        /connection timeout|connection timed out|timeout|ECONNREFUSED/i.test(apiMsg)
 
       if (emailError.code === 'EENVELOPE') {
         errorMessage = mailLanguage === 'zh' 
           ? 'Sender email not verified. Please contact the administrator.' 
           : 'Sender email not verified. Please contact administrator'
+      } else if (isConnectionTimeout) {
+        errorMessage = mailLanguage === 'zh'
+          ? '无法连接邮件服务器（超时）。请检查 SMTP 地址与端口，或尝试使用 587 端口。'
+          : 'Cannot connect to mail server (timeout). Check SMTP host/port or try port 587.'
       } else if (isCreditsExceeded) {
         errorMessage = mailLanguage === 'zh'
           ? '邮件发送额度已用尽，请稍后再试或联系管理员。'
@@ -4251,6 +4257,49 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
   } catch (err) {
     console.error('Webhook handler error:', err)
     res.status(500).send()
+  }
+})
+
+// SMTP connectivity check (no email sent). GET so you can open in browser.
+app.get('/api/test-smtp', async (req, res) => {
+  try {
+    const smtpHost = process.env.SMTP_HOST
+    const smtpPort = process.env.SMTP_PORT
+    const smtpUser = process.env.SMTP_USER
+    const smtpPass = process.env.SMTP_PASS
+    const smtpSecure = process.env.SMTP_SECURE === 'true'
+
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      return res.status(500).json({
+        ok: false,
+        error: 'SMTP not configured',
+        detail: 'Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in environment.',
+      })
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: parseInt(smtpPort, 10),
+      secure: smtpSecure,
+      requireTLS: !smtpSecure && parseInt(smtpPort, 10) === 587,
+      auth: { user: smtpUser, pass: smtpPass },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
+    })
+
+    await transporter.verify()
+    res.json({ ok: true, message: 'SMTP connection successful.' })
+  } catch (err) {
+    console.error('SMTP verify failed:', err.code, err.message)
+    res.status(500).json({
+      ok: false,
+      error: err.message || 'Connection failed',
+      code: err.code,
+      tip: (err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED')
+        ? 'Try SMTP_PORT=587 and SMTP_SECURE=false.'
+        : undefined,
+    })
   }
 })
 
