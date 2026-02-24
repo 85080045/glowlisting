@@ -234,6 +234,72 @@ if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads')
 }
 
+// -------------------- Email sender (Mailgun API or SMTP) --------------------
+const mailgunApiKey = process.env.MAILGUN_API_KEY
+const mailgunDomain = process.env.MAILGUN_DOMAIN
+const hasMailgun = !!(mailgunApiKey && mailgunDomain)
+const hasSmtp = !!(
+  process.env.SMTP_HOST && process.env.SMTP_PORT &&
+  process.env.SMTP_USER && process.env.SMTP_PASS
+)
+const hasMail = hasMailgun || hasSmtp
+
+async function sendEmail({ to, subject, html, text, fromName = 'GlowListing' }) {
+  if (hasMailgun) {
+    const form = new FormData()
+    const fromAddr = process.env.MAILGUN_FROM || `postmaster@${mailgunDomain}`
+    form.append('from', `${fromName} <${fromAddr}>`)
+    form.append('to', to)
+    form.append('subject', subject)
+    form.append('html', html)
+    if (text) form.append('text', text)
+    const res = await axios.post(
+      `https://api.mailgun.net/v3/${mailgunDomain}/messages`,
+      form,
+      {
+        auth: { username: 'api', password: mailgunApiKey },
+        headers: form.getHeaders(),
+        timeout: 15000,
+        validateStatus: (s) => s < 500,
+      }
+    )
+    if (res.status !== 200) {
+      const err = new Error(res.data?.message || `Mailgun ${res.status}`)
+      err.response = res
+      err.code = res.data?.error || 'EMAIL_FAILED'
+      throw err
+    }
+    return
+  }
+  if (hasSmtp) {
+    const smtpHost = process.env.SMTP_HOST
+    const smtpPort = parseInt(process.env.SMTP_PORT, 10)
+    const smtpUser = process.env.SMTP_USER
+    const smtpPass = process.env.SMTP_PASS
+    const smtpSecure = process.env.SMTP_SECURE === 'true'
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      requireTLS: !smtpSecure && smtpPort === 587,
+      auth: { user: smtpUser, pass: smtpPass },
+      connectionTimeout: 45000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000,
+      tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
+    })
+    await transporter.sendMail({
+      from: `"${fromName}" <${smtpUser}>`,
+      to,
+      subject,
+      html,
+      text: text || '',
+    })
+    return
+  }
+  throw new Error('No mail service configured')
+}
+
 // ==================== 用户认证 API ====================
 
 // 发送邮箱验证码
@@ -255,21 +321,15 @@ app.post('/api/auth/send-verification', async (req, res) => {
     // 存储验证码
     verificationCodes.set(email, { code, expiresAt })
 
-    // 使用 SMTP 发邮件（不依赖 SendGrid）
-    const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
-    const smtpHost = process.env.SMTP_HOST
-    const smtpPort = process.env.SMTP_PORT
-    const smtpUser = process.env.SMTP_USER
-    const smtpPass = process.env.SMTP_PASS
-    const smtpSecure = process.env.SMTP_SECURE === 'true'
+    const fromName = process.env.SMTP_FROM_NAME || process.env.MAILGUN_FROM_NAME || 'GlowListing'
 
-    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-      console.error('❌ Mail service not configured (set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)')
+    if (!hasMail) {
+      console.error('❌ Mail service not configured (set MAILGUN_API_KEY + MAILGUN_DOMAIN, or SMTP vars)')
       console.log(`⚠️ Verification code (test only): ${code} (valid 10 min)`)
       return res.status(500).json({ 
         error: mailLanguage === 'zh' 
           ? 'Mail service not configured. Please contact the administrator.' 
-          : 'Email service not configured. Please set SMTP env vars.'
+          : 'Email service not configured. Please set MAILGUN_* or SMTP env vars.'
       })
     }
 
@@ -317,42 +377,22 @@ app.post('/api/auth/send-verification', async (req, res) => {
     }
 
     try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: parseInt(smtpPort),
-        secure: smtpSecure,
-        requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
-        auth: { user: smtpUser, pass: smtpPass },
-        connectionTimeout: 45000,
-        greetingTimeout: 30000,
-        socketTimeout: 60000,
-        tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
-        debug: process.env.NODE_ENV === 'development',
-        logger: process.env.NODE_ENV === 'development',
-      })
-
-      await transporter.sendMail({
-        from: `"${fromName}" <${smtpUser}>`,
+      await sendEmail({
         to: email,
-        subject: subject,
+        subject,
         html: htmlContent,
         text: textContent,
+        fromName,
       })
-
-      console.log(`✅ Verification email sent via SMTP to ${email}`)
+      console.log(`✅ Verification email sent to ${email} (${hasMailgun ? 'Mailgun' : 'SMTP'})`)
     } catch (emailError) {
       console.error('❌ Send mail failed:', emailError)
       console.error('Error code:', emailError.code)
       console.error('Error message:', emailError.message)
-      console.error('SMTP config:', {
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpSecure,
-        user: smtpUser,
-      })
       
       let errorMessage
-      const apiMsg = (emailError.response?.body?.errors?.[0]?.message || emailError.message || '').toString()
+      const resp = emailError.response?.data || emailError.response?.body || {}
+      const apiMsg = (resp.errors?.[0]?.message || resp.message || emailError.message || '').toString()
       const isCreditsExceeded = /maximum credits exceeded|over quota|quota exceeded|credits exceeded/i.test(apiMsg)
       if (emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED' || /connection timeout|timed out/i.test(apiMsg)) {
         errorMessage = mailLanguage === 'zh'
@@ -583,15 +623,11 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     // 即使用户不存在，也返回成功（防止邮箱枚举攻击）
     // 但只有在邮件服务配置正确的情况下才返回成功
     if (!user) {
-      const smtpHost = process.env.SMTP_HOST
-      const smtpPort = process.env.SMTP_PORT
-      const smtpUser = process.env.SMTP_USER
-      const smtpPass = process.env.SMTP_PASS
-      if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      if (!hasMail) {
         return res.status(500).json({ 
           error: mailLanguage === 'zh' 
             ? 'Mail service not configured. Please contact the administrator.' 
-            : 'Email service not configured. Please set SMTP env vars.'
+            : 'Email service not configured. Please set MAILGUN_* or SMTP env vars.'
         })
       }
       return res.json({ success: true, message: 'If the email exists, a password reset link has been sent' })
@@ -600,19 +636,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     // 生成重置token
     const resetToken = generatePasswordResetToken(email)
 
-    const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
-    const smtpHost = process.env.SMTP_HOST
-    const smtpPort = process.env.SMTP_PORT
-    const smtpUser = process.env.SMTP_USER
-    const smtpPass = process.env.SMTP_PASS
-    const smtpSecure = process.env.SMTP_SECURE === 'true'
+    const fromName = process.env.SMTP_FROM_NAME || process.env.MAILGUN_FROM_NAME || 'GlowListing'
 
-    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-      console.error('❌ Mail service not configured (set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)')
+    if (!hasMail) {
+      console.error('❌ Mail service not configured (set MAILGUN_API_KEY + MAILGUN_DOMAIN, or SMTP vars)')
       return res.status(500).json({ 
         error: mailLanguage === 'zh' 
           ? 'Mail service not configured. Please contact the administrator.' 
-          : 'Email service not configured. Please set SMTP env vars.'
+          : 'Email service not configured. Please set MAILGUN_* or SMTP env vars.'
       })
     }
 
@@ -666,43 +697,28 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 
     try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: parseInt(smtpPort),
-        secure: smtpSecure,
-        requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
-        auth: { user: smtpUser, pass: smtpPass },
-        connectionTimeout: 45000,
-        greetingTimeout: 30000,
-        socketTimeout: 60000,
-        tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
-        debug: process.env.NODE_ENV === 'development',
-        logger: process.env.NODE_ENV === 'development',
-      })
-
-      await transporter.sendMail({
-        from: `"${fromName}" <${smtpUser}>`,
+      await sendEmail({
         to: email,
-        subject: subject,
+        subject,
         html: htmlContent,
         text: textContent,
+        fromName,
       })
-
-      console.log(`✅ Password reset email sent via SMTP to ${email}`)
+      console.log(`✅ Password reset email sent to ${email} (${hasMailgun ? 'Mailgun' : 'SMTP'})`)
     } catch (emailError) {
       console.error('❌ Password reset email failed:', emailError)
       console.error('Error code:', emailError.code)
       console.error('Error message:', emailError.message)
-      if (emailError.response?.body) {
-        console.error('Error response:', emailError.response.body)
-      }
+      const errBody = emailError.response?.data || emailError.response?.body
+      if (errBody) console.error('Error response:', errBody)
       
       // 提供更详细的错误信息
       let errorMessage = mailLanguage === 'zh' 
         ? 'Failed to send password reset email. Please try again later.' 
         : 'Failed to send password reset email. Please try again later'
       
-      const apiMsg = (emailError.response?.body?.errors?.[0]?.message || emailError.message || '').toString()
+      const resp = emailError.response?.data || emailError.response?.body || {}
+      const apiMsg = (resp.errors?.[0]?.message || resp.message || emailError.message || '').toString()
       const isCreditsExceeded = /maximum credits exceeded|over quota|quota exceeded|credits exceeded/i.test(apiMsg)
       const isConnectionTimeout = emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNREFUSED' ||
         /connection timeout|connection timed out|timeout|ECONNREFUSED/i.test(apiMsg)
@@ -719,8 +735,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         errorMessage = mailLanguage === 'zh'
           ? '邮件发送额度已用尽，请稍后再试或联系管理员。'
           : 'Email sending limit reached. Please try again later or contact support.'
-      } else if (emailError.response?.body?.errors?.[0]?.message) {
-        errorMessage = emailError.response.body.errors[0].message
+      } else if (resp.errors?.[0]?.message) {
+        errorMessage = resp.errors[0].message
       } else if (apiMsg) {
         errorMessage = apiMsg
       }
@@ -4260,9 +4276,14 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
   }
 })
 
-// SMTP connectivity check (no email sent). GET so you can open in browser.
+// Mail connectivity check. When Mailgun is configured, returns ok without SMTP verify.
+// GET so you can open in browser.
 app.get('/api/test-smtp', async (req, res) => {
   try {
+    if (hasMailgun) {
+      return res.json({ ok: true, message: 'Mailgun configured. Use POST /api/test-email to send a test email.' })
+    }
+
     const smtpHost = process.env.SMTP_HOST
     const smtpPort = process.env.SMTP_PORT
     const smtpUser = process.env.SMTP_USER
@@ -4272,8 +4293,8 @@ app.get('/api/test-smtp', async (req, res) => {
     if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
       return res.status(500).json({
         ok: false,
-        error: 'SMTP not configured',
-        detail: 'Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in environment.',
+        error: 'Mail not configured',
+        detail: 'Set MAILGUN_API_KEY + MAILGUN_DOMAIN, or SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.',
       })
     }
 
@@ -4311,17 +4332,11 @@ app.post('/api/test-email', async (req, res) => {
       return res.status(400).json({ error: 'Email address is required' })
     }
 
-    const fromName = process.env.SMTP_FROM_NAME || 'GlowListing'
-    const smtpHost = process.env.SMTP_HOST
-    const smtpPort = process.env.SMTP_PORT
-    const smtpUser = process.env.SMTP_USER
-    const smtpPass = process.env.SMTP_PASS
-    const smtpSecure = process.env.SMTP_SECURE === 'true'
-
-    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-      return res.status(500).json({ error: 'Email service not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.' })
+    if (!hasMail) {
+      return res.status(500).json({ error: 'Email service not configured. Set MAILGUN_API_KEY + MAILGUN_DOMAIN, or SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.' })
     }
 
+    const fromName = process.env.SMTP_FROM_NAME || process.env.MAILGUN_FROM_NAME || 'GlowListing'
     const testCode = '123456' // 测试验证码
     const mailLanguage = language === 'zh' ? 'zh' : 'en'
     
@@ -4374,29 +4389,15 @@ app.post('/api/test-email', async (req, res) => {
     console.log(`📧 邮件主题: ${subject}`)
     console.log(`📧 邮件语言: ${mailLanguage}`)
     
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: parseInt(smtpPort),
-      secure: smtpSecure,
-      requireTLS: !smtpSecure && parseInt(smtpPort) === 587,
-      auth: { user: smtpUser, pass: smtpPass },
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 60000,
-      tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
-      debug: process.env.NODE_ENV === 'development',
-      logger: process.env.NODE_ENV === 'development',
-    })
-
-    await transporter.sendMail({
-      from: `"${fromName}" <${smtpUser}>`,
-      to: to,
-      subject: subject,
+    await sendEmail({
+      to,
+      subject,
       html: htmlContent,
       text: textContent,
+      fromName,
     })
 
-    console.log(`✅ Test email sent via SMTP to ${to}`)
+    console.log(`✅ Test email sent to ${to} (${hasMailgun ? 'Mailgun' : 'SMTP'})`)
     res.json({
       success: true,
       message: `Test email sent successfully to ${to}`,
